@@ -29,11 +29,10 @@ maxLambda+=deltaLambda
 
 #Can plot orders from  146 to 73 (about 390 to 795nm)
 minOrder=90
-maxOrder=90
+maxOrder=100
 deltaOrder=1
 maxOrder+=deltaOrder
 
-# still don't know what this is 
 booLog=6 
 # Pixel size in microns
 pixelSize= 5.4 
@@ -84,7 +83,7 @@ def main_errors(p, mainArgs):
 #[250.6, 64.2, 58.3, 77.9, 89.5, 85.5, 58.5, 61.7, 1.6, 33.7, 193.5]
 
 def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], 
-         args=['0','0','../Hg_5lines_double.txt','1','0']):
+         args=['0','1','../Hg_5lines_double.txt','1','0']):
     '''
     Compute the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -106,7 +105,11 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         wavelength at x,y
 
     Notes
-    -----  
+    ----- 
+    The reference frame used is described in Carlos's thesis as the following: The axes are aligned with the cameralens-CCD axis. The x-axis runs along the width of the cage, positive direction to the right when looking at the camera. The y-axis runs along the length of the cage, positive direction towards the camera. The z-axis points upwards complying with a right hand convention. 
+    The azimuth angle, phy, has a range from 0 to 2*pi. It spans the x-y plane and has its 0 poit in the positive x direction. Increases counter-clockwise as seen from the positive z-axis.  The Polar angle, theta, ranges from 0 to pi, its 0 point in the positive z direction. 
+    All the prism and grating planes are described by the vector to the normal of the surface. 
+    All units are in degrees and microns, except where otherwise stated. 
     '''  
     
     global n1, n2, n4, n5, s, l, d, flux, booInterpolate
@@ -125,6 +128,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     #Initial beam
     uiphi = radians(p[0])              #'Longitude' with the x axis as 
     uitheta = radians(p[1])            #Latitude with the y axis the polar axis
+    #This function computes the (x,y,z) components of the unit vector of the initial beam in the reference frame described in Carlos's thesis (see Notes above). Same for the next few declarations. 
     u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
        
     #Focal length
@@ -156,7 +160,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
     b = np.cross(a,s)
     
-    #Create l from given alpha using a and b as basis
+    #Create l from given alpha using a and b as basis. l is a unit vector along the grating grooves that is defined as a function of a and b.
     alpha = radians(p[8])
     l = cos(alpha)*a + sin(alpha)*b #component along grooves
        
@@ -181,7 +185,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         Lambda=CCDMap[:,2]
     
 
-        
+    #Don't know why there is a second one of these!
     #Validates new output
     x=y=Lambda=0
     if CCDMap.size>0:
@@ -195,7 +199,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         #CCDMap[:,0]=newx.copy()
         #CCDMap[:,1]=newy.copy()
            
-    #Plot
+    #Plot the spectrum with the trace coordinates for all the orders
     if booPlot==1:
         doPlot(CCDMap,'../mflat.fits')#,'../c_noFlat_Hg_0deg_10s.fits')
     
@@ -203,21 +207,25 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
 
 def extractOrder(x,y,image):
     
-    
+    #Don't know what these fluxes are yet!
     flux=np.zeros(len(y))
     flux2=np.zeros(len(y))
     flux3=np.zeros(len(y))
-
+    
+    #For sanity check
     tempIm=np.zeros((len(y),60))
 
+    #grag image and sizes
     hdulist = pyfits.open(image)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
     im = pyfits.getdata(image)  
 
+    #transform the x and y back into non-central coordinates
     x=x+imWidth/2
     y=y+imHeight/2
+    # spectral order width
     width=6
     
     for k in range(0,len(y)):
@@ -231,9 +239,12 @@ def extractOrder(x,y,image):
 #        flux3[k] = np.sum(in_image_temp)- np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
         
         #Carlos' trial
+        #integer part of the pixel coordinate
         x_int = int(x[k])
         res=x[k]-x_int- 0.5
+        #collapse of flux in wavelength
         sum_in_image_temp = np.sum(im[y[k],x_int-width/2:x_int+width/2])
+        #NEED TO WORK OUT WHAT THESE ARE
         flux[k] = sum_in_image_temp - ((res*im[y[k],x[k]+width/2+1])+ ((1-res)*im[y[k],x[k]-width/2]))
         flux2[k] = ((res*im[y[k],x[k]+width/2+2])+ ((1-res)*im[y[k],x[k]-width/2]))
         flux3[k] = sum_in_image_temp 
@@ -253,7 +264,7 @@ def extractOrder(x,y,image):
 #    plt.imshow(tempIm)
 #    plt.set_cmap(plt.cm.Greys_r)
 #    plt.show()
-             
+    
     return flux, flux2 +np.average(flux), flux3
 
 def fftshift1D(inImage, shift):
@@ -326,7 +337,7 @@ def fftshift(inImage, shift):
     
 def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrder, fLength, stheta, SEDMode, intNormalize):
     
-    dataOut=np.zeros((1,5))
+    dataOut=np.zeros(5)
     
     #Loads SEDMap based on selection. 
     SEDMap = doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
@@ -336,14 +347,10 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
     Navigates orders within the range given
     For each order navigates the list of wavelenghts in SEDMap constrained by +/- FSP/2'''    
     for nOrder in range(minOrder, maxOrder, deltaOrder):
-            
-        LambdaBlMin = LambdaBlMax=0
-        #LambdaBlMin = 2*d*sin(blaze_angle)/(nOrder+0.5) #Was 0.5
+
+        #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
         LambdaBlMin = 2*d*sin(blaze_angle)/(nOrder+1) #Was 0.5
-#        print LambdaBlMin       
-        #LambdaBlMax = 2*d*sin(blaze_angle)/(nOrder-1.25) #Was 0.5
         LambdaBlMax = 2*d*sin(blaze_angle)/(nOrder-1) #Was 0.5
-#        print LambdaBlMax
  
         #SEDMapLoop is an array of wavelengths (paired with intensity) called SEDMap that are in this particular order.
         SEDMapLoop=SEDMap.copy()
@@ -355,21 +362,23 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
 
         #loop lambda for current order
         for Lambda,inI in SEDMapLoop: 
-                                    
+            
+            #refractive indeces of prism and air
             nPrism = nkzfs8(Lambda)
             nAir = n(Lambda)
             
             #Computes the unit vector that results from the optical system for a given wavelength and order
+            #This is the actual tracing of the ray for each wavelength
             v, isValid = rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l)
             
-            if isValid: #no errors in calculation
+            if isValid: #no errors in calculation and ray makes it back through the prism
                 x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
                 z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
     
                 '''Appends data table
-                x,z=pojected coordinates
+                x,z=projected coordinates
                 inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
-                outI=Intensity(Lambda, minLambda, maxLambda)              
+                outI=Intensity(Lambda, minLambda, maxLambda)
                 dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
         
         #Order extraction        
@@ -377,9 +386,10 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
             yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
             LambdaPlot=dataOut[dataOut[:,4]==nOrder][:,2]
-            
+            print 'before',xPlot
             fLambda = interpolate.interp1d(yPlot, LambdaPlot)
             fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+
             #print y,f(np.trunc(y)) 
             
     #        image ='../c_noFlat_Hg_0deg_10s.fits'
@@ -394,8 +404,9 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             newY=np.arange(-imHeight/2,imHeight/2)
             
             newX=fX(newY)
-            
+            #print 'after',newX
             nanMap= np.isnan(newX)
+            print nanMap[nanMap==True]
             newX=newX[-nanMap]
             newY=newY[-nanMap]
                     
@@ -421,6 +432,8 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
 
 #backImage='../sky_0deg_2.FIT'
    
+
+#This function traces the ray for a single wavelength but possibly multiple orders. I suspect this was introduced to test some possibility.
 def x(Lambda, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]): #,args=['2','1','../Hg_5lines_double.txt','1','0']):
     
     #Args breakdown
@@ -515,8 +528,6 @@ def doPlot(CCDMap, backImage='../c_noFlat_sky_0deg_460_median.fits'):
         im /= im.max()
         #im = np.sqrt(im) #Remove this line for Hg
     
-
-        
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
         
@@ -654,7 +665,7 @@ def doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
     Notes
     -----
     '''  
-    if SEDMode==0: #Flat
+    if SEDMode==0: #Flat 
         SEDMap = np.column_stack((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
 
     elif SEDMode==1: #Random
