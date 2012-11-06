@@ -17,25 +17,30 @@ from scipy import interpolate
 from astLib import astSED           
 
 #Math package 
-from math import cos, sin, acos, asin, pi, atan, degrees, radians
+from math import cos, sin, acos, asin, pi, atan, degrees, sqrt, radians
+
+import bisect as bis
+
+import matplotlib.image as mpimg
+
+
 
 '''
 Initial Parameters-------------------------------------------------------------- 
 Wavelength'''
-minLambda=0.380   #min wavelength
-maxLambda=0.780    #max wavelength
+minLambda=0.5886 #min wavelength
+maxLambda=0.59    #max wavelength
 deltaLambda=0.0001    #step interval
 maxLambda+=deltaLambda
 
 #Can plot orders from  146 to 73 (about 390 to 795nm)
-minOrder=90
-maxOrder=100
-deltaOrder=1
+minOrder=146
+maxOrder=73
+deltaOrder=-1
 maxOrder+=deltaOrder
-
 booLog=6 
-# Pixel size in microns
 pixelSize= 5.4 
+
 
 def main_errors(p, mainArgs):
     #main will return these vectors in a random order. 
@@ -78,12 +83,14 @@ def main_errors(p, mainArgs):
 #    print y_best - y
 #    print np.hstack([(x_best-x)/xSig,(y_best - y)/ySig])
 
-    return np.hstack([(x_best-x)/xSig,(y_best - y)/ySig])
+    return np.hstack([(x_best-x)/xSig,(y_best - y)/ySig]), waveList
 
-#[250.6, 64.2, 58.3, 77.9, 89.5, 85.5, 58.5, 61.7, 1.6, 33.7, 193.5]
+
 
 def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], 
-         args=['0','1','../Hg_5lines_double.txt','1','0']):
+         args=['0','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','0','0','../solar.png']):#'../solar.txt'
+
+    
     '''
     Compute the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -93,7 +100,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
          blaze period (microns), focal length(mm), distortion term) <-- optical arrangement
     args : np np.array
-        (SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile, Normalize intensity? (0=no, #=range), Distort?) <-- other options
+        (SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile, Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints) <-- other options
    
     Returns
     -------
@@ -105,18 +112,14 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         wavelength at x,y
 
     Notes
-    ----- 
-    The reference frame used is described in Carlos's thesis as the following: The axes are aligned with the cameralens-CCD axis. The x-axis runs along the width of the cage, positive direction to the right when looking at the camera. The y-axis runs along the length of the cage, positive direction towards the camera. The z-axis points upwards complying with a right hand convention. 
-    The azimuth angle, phy, has a range from 0 to 2*pi. It spans the x-y plane and has its 0 poit in the positive x direction. Increases counter-clockwise as seen from the positive z-axis.  The Polar angle, theta, ranges from 0 to pi, its 0 point in the positive z direction. 
-    All the prism and grating planes are described by the vector to the normal of the surface. 
-    All units are in degrees and microns, except where otherwise stated. 
+    -----  
     '''  
     
-    global n1, n2, n4, n5, s, l, d, flux, booInterpolate
-    global booPlot, specFile, booPlotCalibPoints
+    global n1, n2, n4, n5, s, l, d, flux, booInterpolate, plotBackImage
+    global booPlot, specFile, booPlotCalibPoints, allFlux,booPlotLabels, specFile
+    global booGaussianFit
     
-    booInterpolate=1
-    booPlotCalibPoints=0
+
     
     #Args breakdown
     SEDMode = int(args[0])
@@ -124,23 +127,27 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     specFile = args[2]
     intNormalize = int(args[3])
     booDistort = int(args[4])
+    booInterpolate=int(args[5])
+    booPlotCalibPoints=int(args[6])
+    booPlotLabels=int(args[7])
+    plotBackImage=args[8]
+    booGaussianFit=int(args[9])
     
     #Initial beam
     uiphi = radians(p[0])              #'Longitude' with the x axis as 
     uitheta = radians(p[1])            #Latitude with the y axis the polar axis
-    #This function computes the (x,y,z) components of the unit vector of the initial beam in the reference frame described in Carlos's thesis (see Notes above). Same for the next few declarations. 
     u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
        
     #Focal length
     fLength = p[10]
     
     #Prism surface 1
-    n1phi = radians(p[2])
-    n1theta = radians(p[3])
+    n1phi = radians(p[2])   
+    n1theta = radians(p[3]) 
     n1=np.array([cos(n1phi)*sin(n1theta),sin(n1phi)*sin(n1theta),cos(n1theta)])
     
     #Prism surface 2
-    n2phi = radians(p[4])
+    n2phi = radians(p[4])   
     n2theta = radians(p[5]) 
     n2=np.array([cos(n2phi)*sin(n2theta),sin(n2phi)*sin(n2theta),cos(n2theta)])
 
@@ -160,8 +167,8 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
     b = np.cross(a,s)
     
-    #Create l from given alpha using a and b as basis. l is a unit vector along the grating grooves that is defined as a function of a and b.
-    alpha = radians(p[8])
+    #Create l from given alpha using a and b as basis
+    alpha = radians(p[8]) 
     l = cos(alpha)*a + sin(alpha)*b #component along grooves
        
     #Distortion np.array
@@ -185,7 +192,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         Lambda=CCDMap[:,2]
     
 
-    #Don't know why there is a second one of these!
+        
     #Validates new output
     x=y=Lambda=0
     if CCDMap.size>0:
@@ -194,14 +201,14 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         Lambda=CCDMap[:,2]
         #MJI...
         #p[11]=0
-        #newx = x*cos(radians(p[11])) - y*sin(radians(p[11]))
-        #newy = y*cos(radians(p[11])) + x*sin(radians(p[11]))
+        #newx = x*cos(pi*p[11]/180) - y*sin(pi*p[11]/180)
+        #newy = y*cos(pi*p[11]/180) + x*sin(pi*p[11]/180)
         #CCDMap[:,0]=newx.copy()
         #CCDMap[:,1]=newy.copy()
            
-    #Plot the spectrum with the trace coordinates for all the orders
+    #Plot
     if booPlot==1:
-        doPlot(CCDMap,'../mflat.fits')#,'../c_noFlat_Hg_0deg_10s.fits')
+        doPlot(CCDMap)
     
     return x, y, Lambda
 
@@ -211,43 +218,43 @@ def extractOrder(x,y,image):
     flux=np.zeros(len(y))
     flux2=np.zeros(len(y))
     flux3=np.zeros(len(y))
-    
-    #For sanity check
-    tempIm=np.zeros((len(y),60))
 
-    #grag image and sizes
+    #Grab image and sizes
     hdulist = pyfits.open(image)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
     im = pyfits.getdata(image)  
 
-    #transform the x and y back into non-central coordinates
     x=x+imWidth/2
     y=y+imHeight/2
-    # spectral order width
-    width=6
+
     
     for k in range(0,len(y)):
         ###mikes'
-#        x_int = round(x[k])
-#        #if e.g. x = 10.4, this goes from 5 to 15, and xv at the center is 0.4
-#        in_image_temp = im[y[k],x_int-5:x_int+6]
-#        xv = np.arange(-5,6) - x[k] + x_int
-#        flux[k] =  np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
+        x_int = round(x[k])
+        #if e.g. x = 10.4, this goes from 5 to 15, and xv at the center is 0.4
+
+        
+        in_image_temp = im[y[k],x_int-5:x_int+6]
+
+#        in_image_temp=im[y[k],x_int-5]        
+#        for i in range(-4,6):
+#            in_image_temp = np.hstack((in_image_temp,im[y[k+i-4],x_int+i]))
+            
+        in_image_temp[in_image_temp < 0] = 0
+        xv = np.arange(-5,6) - x[k] + x_int
+        flux[k] =  np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
 #        flux2[k] = np.sum(in_image_temp)
 #        flux3[k] = np.sum(in_image_temp)- np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
         
         #Carlos' trial
-        #integer part of the pixel coordinate
-        x_int = int(x[k])
-        res=x[k]-x_int- 0.5
-        #collapse of flux in wavelength
-        sum_in_image_temp = np.sum(im[y[k],x_int-width/2:x_int+width/2])
-        #NEED TO WORK OUT WHAT THESE ARE
-        flux[k] = sum_in_image_temp - ((res*im[y[k],x[k]+width/2+1])+ ((1-res)*im[y[k],x[k]-width/2]))
-        flux2[k] = ((res*im[y[k],x[k]+width/2+2])+ ((1-res)*im[y[k],x[k]-width/2]))
-        flux3[k] = sum_in_image_temp 
+#        x_int = int(x[k])
+#        res=x[k]-x_int- 0.5
+#        sum_in_image_temp = np.sum(im[y[k],x_int-width/2:x_int+width/2])
+#        flux[k] = sum_in_image_temp - ((res*im[y[k],x[k]+width/2+1])+ ((1-res)*im[y[k],x[k]-width/2]))
+#        flux2[k] = ((res*im[y[k],x[k]+width/2+2])+ ((1-res)*im[y[k],x[k]-width/2]))
+#        flux3[k] = sum_in_image_temp 
         
 #    print xv #Mike's check
 #       in_image=np.reshape(np.tile(in_image_temp,in_image_temp.shape[0]),(in_image_temp.shape[0],in_image_temp.shape[0]))
@@ -264,7 +271,8 @@ def extractOrder(x,y,image):
 #    plt.imshow(tempIm)
 #    plt.set_cmap(plt.cm.Greys_r)
 #    plt.show()
-    
+          
+
     return flux, flux2 +np.average(flux), flux3
 
 def fftshift1D(inImage, shift):
@@ -338,11 +346,14 @@ def fftshift(inImage, shift):
 def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrder, fLength, stheta, SEDMode, intNormalize):
     
     dataOut=np.zeros(5)
+
     
     #Loads SEDMap based on selection. 
     SEDMap = doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
     blaze_angle= stheta #Approximately atan(2)
-
+    allFlux=np.array([0])
+    allLambdas=np.array([0])
+    
     '''Main loop
     Navigates orders within the range given
     For each order navigates the list of wavelenghts in SEDMap constrained by +/- FSP/2'''    
@@ -376,143 +387,188 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
                 z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
     
                 '''Appends data table
-                x,z=projected coordinates
+                x,z=pojected coordinates
                 inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
-                outI=Intensity(Lambda, minLambda, maxLambda)
+                outI=Intensity(Lambda, minLambda, maxLambda)              
                 dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
         
         #Order extraction        
-        if booInterpolate==1:
+        if (booInterpolate==1 and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
             xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
             yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
             LambdaPlot=dataOut[dataOut[:,4]==nOrder][:,2]
-            print 'before',xPlot
+            
             fLambda = interpolate.interp1d(yPlot, LambdaPlot)
             fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
-
-            #print y,f(np.trunc(y)) 
+          
             
-    #        image ='../c_noFlat_Hg_0deg_10s.fits'
-    #        image ='../c_noFlat_sky_0deg_460_median.fits'
-#            image ='../simple_flat.fits'
-            image ='../mflat.fits'
-    
-            hdulist = pyfits.open(image)
+            hdulist = pyfits.open(plotBackImage)
             imWidth = hdulist[0].header['NAXIS1']
             imHeight = hdulist[0].header['NAXIS2']
             
             newY=np.arange(-imHeight/2,imHeight/2)
             
             newX=fX(newY)
-            #print 'after',newX
+            
             nanMap= np.isnan(newX)
-            print nanMap[nanMap==True]
             newX=newX[-nanMap]
             newY=newY[-nanMap]
                     
-            flux,flux2,flux3 = extractOrder(newX,newY,image)
+            flux,flux2,flux3 = extractOrder(newX,newY,plotBackImage)
             
-            fig = plt.figure()
-            ax1 = fig.add_subplot(111)
-        
-            ax1.plot(fLambda(newY),flux)
-            ax1.plot(fLambda(newY),flux2)
-            ax1.plot(fLambda(newY),flux3)
+            #read flats
+            image ='../simple_flat.fits'
+            fluxFlat,flux2,flux3 = extractOrder(newX,newY,image)
+            
+            
+            Lambdas=fLambda(newY)
+            
+            #Blackbody curve to balance flats
+            BB=Lambdas**(-4) / (np.exp(14400/Lambdas/3000)- 1)
+         
+         
+            cleanFlux= flux/fluxFlat*BB#/nOrder**2#/np.max(fluxFlat))
 
-            #plt.plot(fLambda(newY),flux)
-            plt.show()
-        
+            #Write flux to files
+#            f = open('../Order_'+ str(nOrder) +'.txt', 'w')
+#            for k in range(0,len(Lambdas)):
+#                outText=str(Lambdas[k])+'\t'+ str(cleanFlux[k])+'\n'
+#                f.write(outText)
+#            f.close()
+#            
+#            peakIndex=np.where(normalizedFlux==np.max(normalizedFlux))[0][0]
+#            peakIndex=len(normalizedFlux)/2
+#            Range=(len(normalizedFlux)- peakIndex)*0.6
+            
+
+            # Fit a Gaussian             
+            if booGaussianFit==1: 
+#                # Create some sample data
+#                known_param = np.array([2.0, .7])
+#                xmin,xmax = -1.0, 5.0
+#                N = 1000
+#                X = np.linspace(xmin,xmax,N)
+#                Y = gauss(X, known_param)
+#                
+#                # Add some noise
+#                Y += .10*np.random.random(N)
+#                
+#                # Renormalize to a proper PDF
+#                Y /= ((xmax-xmin)/len(Y))*Y.sum()  
+                
+                
+                         
+                X=Lambdas.copy()
+                Y=cleanFlux.copy()
+                if len(Y)>0:
+                    #Y /= ((np.max(X) - np.min(X))/len(Y))*Y.sum()  
+                    
+                    a,FWHMIndex = find_nearest(Y,np.max(Y)/2)
+                    maxIndex=np.where(Y==np.max(Y))[0][0]
+                    FWHM=2*(X[maxIndex]-X[FWHMIndex])
+                    fit_mu=X[maxIndex]
+                    #print 'FWHM',FWHM
+#                cleanX=X[np.arange(0,len(X),1)].copy()
+#                cleanY=Y[np.arange(0,len(Y),1)].copy()
+
+#                    p0 = [0,1] # Inital guess is a normal distribution
+#                    errfunc = lambda p, x, y: gauss(x, p) - y # Distance to the target function
+#                    p1, success = leastsq(errfunc, p0[:], args=(X,Y))
+#                    
+#                    fit_mu, fit_stdev = p1
+#                    
+#                    p1[1]=5*fit_stdev
+#                    
+#                    FWHM = 4*np.sqrt(2*np.log(2))*fit_stdev
+#                    print 'FWHM2',FWHM
+                    
+                    R=fit_mu/FWHM
+                    print fit_mu ,'            ', R
+                    
+                    plt.plot(X,Y) 
+    #                plt.plot(cleanX,cleanY) 
+                    plt.ylabel('Intensity (Relative Units)')
+                    plt.xlabel('Wavelength (Micrometers)')
+                    plt.title('Spectral Resolution at '+ str("{:0.4f}".format(fit_mu))+' micrometers')
+                    plt.annotate('FWHM='+str("{:0.4f}".format(FWHM*1000))+'nm R=' + str("{:0.4f}".format(fit_mu/FWHM)), 
+                        xy = (X[0],Y[0]), xytext = (220, 250),
+                        textcoords = 'offset points', ha = 'right', va = 'bottom',
+                        bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9), size=15)
+                    #plt.plot(X, gauss(X,p1),lw=3,alpha=.5, color='r')
+                    plt.axvspan(fit_mu-FWHM/2, fit_mu+FWHM/2, facecolor='g', alpha=0.5)
+                    plt.show()
+#            
+#            print nOrder
+#            print str("{:0.4f}".format(p1[0]/FWHM))
+#            print str("{:0.4f}".format(p1[0]))
+            
+            if np.sum(allFlux)>0:
+                intersectStart=bis.bisect(allLambdas,np.min(Lambdas))   
+                intersectEnd=len(allLambdas)   
+                bestDistance=1e10     
+                bestIndex=0
+                
+                for k in range(0,intersectEnd-intersectStart):
+                    currDistance=sqrt((allFlux[intersectStart+k]-cleanFlux[k])**2)
+                    if currDistance<bestDistance:
+                        bestDistance=currDistance
+                        bestIndex=k
+                        
+                allLambdas=allLambdas[allLambdas<Lambdas[bestIndex]]
+                allFlux=allFlux[allLambdas<Lambdas[bestIndex]]
+                
+
+                
+                allLambdas=np.hstack((allLambdas,Lambdas[bestIndex:]))
+                allFlux=np.hstack((allFlux,cleanFlux[bestIndex:]))
+            else:
+                allLambdas=Lambdas
+                allFlux=cleanFlux
+             
+#            if booInterpolate==1:   
+#                
+#                fig = plt.figure()
+#                plt.ylabel('Intensity (Counts)')
+#                plt.xlabel('Wavelength (Micrometers)')
+#                plt.title('Order '+ str(nOrder))
+#                ax1 = fig.add_subplot(111)          
+#                ax1.plot(Lambdas,cleanFlux)
+##                ax1.plot(Lambdas,fluxFlat)
+#                ax1.plot(Lambdas,flux3)
+#                #plt.savefig(str(nOrder)+'.png')
+#                plt.show()
+#    
+
+    if booInterpolate==1:   
+#        a=np.sort(allFlux,0)
+#        params = {'legend.fontsize': 200,
+#          'legend.linewidth': 2}
+#        plt.rcParams.update(params)
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111)
+        ax1.plot(allLambdas,allFlux)
+#        ax1.scatter(allLambdas,allFlux ,s=0.1, color='black' , marker='o', alpha =1)
+        plt.title('Sodium Doublet')
+        plt.ylabel('Intensity (Relative Units)')
+        plt.xlabel('Wavelength (Micrometers)')
+        plt.show() 
+       
     CCDMap=dataOut[1:,]
-#    if dataOut.size>5: #temporary hack for leastsq fit       
-#        CCDMap=dataOut[1:,]
-#    else:
-#        CCDMap=np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]])
-        
+
+
+
     return CCDMap
 
 #backImage='../sky_0deg_2.FIT'
-   
 
-#This function traces the ray for a single wavelength but possibly multiple orders. I suspect this was introduced to test some possibility.
-def x(Lambda, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]): #,args=['2','1','../Hg_5lines_double.txt','1','0']):
-    
-    #Args breakdown
-#    SEDMode = int(args[0])
-#    booPlot = int(args[1])
-#    specFile = args[2]
-#    intNormalize = int(args[3])
-#    booDistort = int(args[4])
-    
-    #Initial beam
-    uiphi = radians(p[0])              #'Longitude' with the x axis as 
-    uitheta = radians(p[1])            #Latitude with the y axis the polar axis
-    u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
-       
-    #Focal length
-    fLength = p[10]
-    
-    #Prism surface 1
-    n1phi = radians(p[2])
-    n1theta = radians(p[3])
-    n1=np.array([cos(n1phi)*sin(n1theta),sin(n1phi)*sin(n1theta),cos(n1theta)])
-    
-    #Prism surface 2
-    n2phi = radians(p[4])
-    n2theta = radians(p[5])
-    n2=np.array([cos(n2phi)*sin(n2theta),sin(n2phi)*sin(n2theta),cos(n2theta)])
+def gauss(x, p): # p[0]==mean, p[1]==stdev
+    return 1.0/(p[1]*np.sqrt(2*np.pi))*np.exp(-(x-p[0])**2/(2*p[1]**2))
 
-    #Prism surface 3 (surf #2 on return)
-    n4=-n2
-    
-    #Prism surface 4 (surf #1 on return)
-    n5=-n1 
-    
-    #Grating
-    d = p[9]  #blaze period in microns  
-    sphi = radians(p[6])
-    stheta = radians(p[7])
-    s = np.array([cos(sphi)*sin(stheta),sin(sphi)*sin(stheta),cos(stheta)]) #component perp to grooves
-        
-    #Now find two vectors perpendicular to s:
-    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
-    b = np.cross(a,s)
-    
-    #Create l from given alpha using a and b as basis
-    alpha = radians(p[8])
-    l = cos(alpha)*a + sin(alpha)*b #component along grooves
-       
-    #Distortion np.array
-    K = [0] #p[11]
-    
-    nPrism = nkzfs8(Lambda)
-    nAir = n(Lambda)
+def find_nearest(array,value):
+    idx=(np.abs(array-value)).argmin()
+    return array[idx], idx
 
-    blaze_angle= stheta #Approximately atan(2)
-
-    dataOut=np.zeros((1,2))
- 
-    for nOrder in range(minOrder, maxOrder, deltaOrder):
-        LambdaBlMin = LambdaBlMax=0
-        LambdaBlMin = 2*d*sin(blaze_angle)/(nOrder+1) #Was 0.5
-        LambdaBlMax = 2*d*sin(blaze_angle)/(nOrder-1) #Was 0.5
-        
-        if (LambdaBlMin<=Lambda<=LambdaBlMax):
-            
-            v, isValid = rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l)
-        
-            tempx=v[0]*fLength*1000/pixelSize
-            dataOut= np.vstack((dataOut,np.array([tempx,nOrder]))) 
-
-    CCDMap=dataOut[1:,]
-    
-    #z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
-    """Remove rows outside the CCD range"""
-    CCDMap = CCDMap[CCDMap[:,0]>=-3352/2]     
-    CCDMap = CCDMap[CCDMap[:,0]<=3352/2]   
-     
-    return CCDMap
-
-def doPlot(CCDMap, backImage='../c_noFlat_sky_0deg_460_median.fits'):
+def doPlot(CCDMap):
         x = CCDMap[:,0] 
         z = CCDMap[:,1] 
         Lambda = CCDMap[:,2] 
@@ -520,28 +576,63 @@ def doPlot(CCDMap, backImage='../c_noFlat_sky_0deg_460_median.fits'):
 
         colorTable = np.array((wav2RGB(Lambda, Intensity))) 
         
-        hdulist = pyfits.open(backImage)
+        hdulist = pyfits.open(plotBackImage)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
 
-        im = pyfits.getdata(backImage)
+        im = pyfits.getdata(plotBackImage)
+        im[im<0]=0
         im /= im.max()
-        #im = np.sqrt(im) #Remove this line for Hg
-    
+        im = np.sqrt(im) #Remove this line for Hg
+#        im = np.sqrt(im) #Remove this line for Hg
+#    
+
+#        labels = np.array([0])
+#         
+#        for line in open('../solar2.txt'):
+#            Lambda = float(str(line).split()[0]) #Wavelength
+#            labels = np.vstack((labels,np.array([Lambda])))
+#
+#        labels=labels[1:]
+        
+#        im=mpimg.imread('../solar.png')
+        
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
-        
+
         plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
         plt.set_cmap(cm.Greys_r)
-        ax1.scatter(x, -z ,s=4, color=colorTable, marker='o')
+        ax1.scatter(x, -z ,s=8, color=colorTable , marker='o', alpha =.5)
+#        color=colorTable
+#        print random.randrange(-30,-10) random()
+#        plt.subplots_adjust(bottom = 0.1)
+        if booPlotLabels==1:
+            for label, x, y in zip(Lambda, x, -z):
+                plt.annotate(
+                    label, 
+                    xy = (x, y), xytext = (0,-20),
+                    textcoords = 'offset points', ha = 'right', va = 'bottom',
+                    bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9),
+                    arrowprops = dict(arrowstyle="wedge,tail_width=1.",
+                                fc=(0, 0, 1), ec=(1., 1, 1),
+                                patchA=None,
+                                relpos=(0.2, 0.8),
+                                connectionstyle="arc3,rad=-0.1"), size=7)
+
+        plt.ylabel('pixels')
+        plt.xlabel('pixels')
+        
+        
         
         if booPlotCalibPoints==1:
-            x,y,waveList,xSig,ySig = readCalibrationData('../c_noFlat_Hg_0deg_10s.txt')
-            ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=10, color='r', marker='s')
+            x,y,waveList,xSig,ySig = readCalibrationData(specFile)
+            ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=400, color='black', marker='x', alpha=1)
 
 
 
 #        plt.plot( x,-z, "o", markersize=7, color=colorTable, markeredgewidth=1,markeredgecolor='g', markerfacecolor='None' )
+        
+        plt.title('Order Identification')
 
         plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
         
@@ -665,7 +756,7 @@ def doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
     Notes
     -----
     '''  
-    if SEDMode==0: #Flat 
+    if SEDMode==0: #Flat
         SEDMap = np.column_stack((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
 
     elif SEDMode==1: #Random
@@ -834,7 +925,7 @@ def Intensity(Lambda, minLambda, maxLambda):
     x = (((float(Lambda) - float(minLambda))/(float(maxLambda) - float(minLambda)))-0.5)*2
     if x!=0:
         z=sin(x*pi)/(x*pi)
-     
+    z=1
 
 #    print x,z
                 
@@ -861,7 +952,7 @@ def n(Lambda, t=18, p=101325):
     
     return n
 
-def distort( inX, inY, K=[0], Xc=0 , Yc=0):
+def distort( inX, inY, K=[0], Xc=0 , Yc=0):	    
     '''
     Transforms coordinate values based on Brown's 1966 model.
        
@@ -907,7 +998,7 @@ def distort( inX, inY, K=[0], Xc=0 , Yc=0):
     
     return outX, outY
  
-def findFit(calibrationFile):
+def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -924,19 +1015,14 @@ def findFit(calibrationFile):
     Notes
     -----
     '''  
-      
-    mainArgs=['4','0',calibrationFile,'0','0']
+    mainArgs=['4','0',calibrationFile,'0','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits']   
+    #old mainArgs=['4','0',calibrationFile,'0','0']
     #x,y, wavelist are the positions of the peaks in calibrationFile.
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
-#    fit = leastsq(main_errors, [279, 90.6, 59, 90, 89, 90, 70.75, 65, 0, 31.64, 210,0], args = (mainArgs), full_output=False, factor=0.05)
-#    fit = leastsq(main_errors, [279, 90.6, 59, 90, 89, 90, 70.75, 63.9, 0, 31.62, 210], args = (mainArgs), full_output=False, factor=0.03)#Obviously bad
-#    fit = leastsq(main_errors, [279, 90.6, 59, 90, 89, 90, 70.75, 66.1, 0, 31.62, 210], args = (mainArgs), full_output=False, factor=0.03)#Obviously bad
-#    fit = leastsq(main_errors, [278.6, 90.6, 61, 90, 91, 90, 70.75, 63.95, 0, 31.9, 210], args = (mainArgs), full_output=True, factor=0.06)
-#    fit = leastsq(main_errors, [278.2,90.8,59.0,90.4,88.9,89.7,70.8,65.1,0.758,31.67,203.1], args=mainArgs, full_output=True, diag=[1,1,1,1,1,1,1,1,1,.1,1])
 
-    fit = leastsq(main_errors,[ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005], args=mainArgs, full_output=True, diag=[1,1,1,1,1,1,1,1,1,.1,1])
-#    fit = leastsq(main_errors, [278.2,90.8,59.0,90.4,88.9,89.7,68.8,65.1,0.758,31.67,203.1], args=mainArgs, full_output=True, diag=[1,1,1,1,1,1,1,1,1,.1,1])
+    fit = leastsq(main_errors,p_try, args=mainArgs, full_output=True, factor=factor_try, diag=diag_try)
+#    fit = leastsq(main_errors, [278.2,90.8,59.0,90.4,88.9,89.7,68.8,65.1,0.758,31.67,203.1], args=mainArgs, full_output=True,factor,diag )
 
     return fit
    
@@ -1016,7 +1102,7 @@ def calibrateImage(inFileName, biasFileName, darkFileName, flatFileName, outFile
     #Flats
     flatFile=pyfits.getdata(flatFileName)
     
-    outFile=outFile/flatFile
+    #outFile=outFile/flatFile
     
     #Bad Pixels
 
@@ -1024,10 +1110,40 @@ def calibrateImage(inFileName, biasFileName, darkFileName, flatFileName, outFile
     #write result
     pyfits.writeto(outFileName, outFile)
 
-def subtractDark(inFile, darkFile, outFilename):
+def subtractDark(inFileName, darkFileName, outFilename):
+    
+    inFile = pyfits.getdata(inFileName) 
+    darkFile = pyfits.getdata(darkFileName) 
     
     outFile = inFile - darkFile
+    
     pyfits.writeto(outFilename, outFile)
+                              
+                                
+def compareTemp(inFileName1,inFileName2, outFilename):
+
+
+    im1 = pyfits.getdata(inFileName1)
+    im2 = pyfits.getdata(inFileName2)
+
+    outFile=im2-im1
+
+    pyfits.writeto(outFilename, outFile)
+
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+
+
 
 
 
@@ -1043,7 +1159,11 @@ def subtractDark(inFile, darkFile, outFilename):
 #print p[0]
 #main(p[0])
 
-main()
+#main()
+
+#compareTemp('../6hrs/Medians/med1_5.fits','../6hrs/Medians/med711_715.fits','../6hrs/Results/out1.fits')
+
+#batchAverage2()
 
 #batchMedian()
 
@@ -1062,6 +1182,48 @@ main()
 
 #calibrateImage('../Hg_0deg_10s.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_Hg_0deg_10s.fits')
 
+#calibrateImage('../sky_0deg_460_1.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_1.fits')
+#calibrateImage('../sky_0deg_460_2.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_2.fits')
+#calibrateImage('../sky_0deg_460_3.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_3.fits')
+
+#calibrateImage('../sky_0deg_1550_median.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_1550_median.fits')
+
+
+
+
+#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, '../dark_a_median.fits')
+#
+#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles,  '../dark_a_average.fits')
+#
+#
+#subtractDark('../arcturus_1min_1.fits','../dark_a_average.fits','../c_arcturus_1min_1.fits')
+#subtractDark('../arcturus_1min_2.fits','../dark_a_average.fits','../c_arcturus_1min_2.fits')
+#subtractDark('../arcturus_1min_3.fits','../dark_a_average.fits','../c_arcturus_1min_3.fits')
+#subtractDark('../arcturus_1min_4.fits','../dark_a_average.f#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, '../dark_a_median.fits')
+#
+#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles,  '../dark_a_average.fits')
+#
+#
+#subtractDark('../arcturus_1min_1.fits','../dark_a_average.fits','../c_arcturus_1min_1.fits')
+#subtractDark('../arcturus_1min_2.fits','../dark_a_average.fits','../c_arcturus_1min_2.fits')
+#subtractDark('../arcturus_1min_3.fits','../dark_a_average.fits','../c_arcturus_1min_3.fits')
+#subtractDark('../arcturus_1min_4.fits','../dark_a_average.fits','../c_arcturus_1min_4.fits')
+#
+#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#medianCombine(inFiles, '../c_arcturus_1min_median.fits')
+#
+#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#averageCombine(inFiles, '../c_arcturus_1min_average.fits')its','../c_arcturus_1min_4.fits')
+#
+#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#medianCombine(inFiles, '../c_arcturus_1min_median.fits')
+#
+#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#averageCombine(inFiles, '../c_arcturus_1min_average.fits')
 
 
 #print x(0.502)
@@ -1083,3 +1245,142 @@ main()
 
 #best p for previous fitting:
 #p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005]
+#'../c_noFlat_Hg_0deg_10s.fits')#,'../solar.png')#,'../mdark.fits')#,'../simple_flat.fits')#
+
+
+#Fraunhofer Lines-CCDMap with labels***********************************************************************************
+#identify fraunhofer
+#SED fraunhofer
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
+#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits','0']
+#main(p,args)
+#********************************************************************************************************
+
+
+#Arcturus callibration**********************************************************************************
+#p_try=[ 272.45928478  , 91.17527895 ,  59.25339245 ,  89.61147631 ,  89.63791054,   89.81178189 ,  68.1669475 ,   63.3555271 ,   1.10221798 ,  31.8848023,  199.70165672] #best
+##p_try=[250.6, 64.2, 58.3, 77.9, 89.5, 85.5, 58.5, 61.7, 1.6, 33.7, 193.5] #doeesn't work
+## ok p_try=[279, 90.6, 59, 90, 89, 90, 70.75, 65, 0, 31.64, 210]
+##p_try = [278.6, 90.6, 61, 90, 91, 90, 70.75, 63.95, 0, 31.9, 210]
+##p_try = [278.2,90.8,59.0,90.4,88.9,89.7,70.8,65.1,0.758,31.67,203.1]
+#only h-alpha
+#p_try = [ 272.46778143,   91.14782003 ,  59.2663218 ,   89.65582564 ,  89.62544383,   89.76937348  , 68.19750843 ,  63.29873297  ,  1.10998689  , 31.92112407,  199.70153725]
+#
+##next
+#p_try = [ 272.45928478,   91.17527895  , 59.25339245 ,  89.61147631 ,  89.63791054,  89.81178189 ,  68.1669475 ,   63.3555271,     1.10221798 ,  31.8848023,  199.70165672]
+#
+#diag_try=[1,1,1,1,1,1,1,1,1,0.1,1]
+#factor_try=0.3
+#p=findFit('../arcturus.txt',p_try, factor_try, diag_try)
+#print p[0]
+#main(p[0],args=['4','1','../arcturus.txt','1','0','0','1','0','../c_arcturus_1min_4.fits','0'])
+#********************************************************************************************************
+
+
+#Arcturus plot********************************************************************************************************
+#(beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+#         blaze period (microns), focal length(mm), distortion term)
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
+#Gaussian) <-- other options
+#p=[ 272.45928478  , 91.5 ,  59.25339245 ,  89.61147631 ,  89.63791054,   89.81178189 ,  68.1669475 ,   63.3555271 ,   1.10221798 ,  31.8848023,  200] 
+#p=[ 272.35233865 ,  91.17544429  , 59.24907075 ,  90.19912466  , 89.63148374,   89.2621423  ,  68.1372743   , 62.95098288   , 1.0992334  ,  32.24603515,  199.65078345]
+#p = [ 271.9473,   91.137 ,  59.2663218 ,   89.65582564 ,  89.62544383,   89.76937348  , 68.19750843 ,  63.29873297  ,  1.65  , 31.92112407,  199.70153725]
+#main(p,args=['0','1','../arcturus.txt','1','0','1','0','0','../c_arcturus_1min_4.fits','0'])
+#*********************************************************************************************************************
+
+#Spectral Resolution-CCDMap mercury with labels******************************************************************************************************************
+#(beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+#         blaze period (microns), focal length(mm))
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
+# Gaussian) <-- other options
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['4','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','0','1','../c_noFlat_Hg_0deg_10s.fits','0']
+#main(p,args)
+#*********************************************************************************************************************
+
+
+#Spectral Resolution-Gaussian Fit in Orders******************************************************************************************************************
+#(beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+#         blaze period (microns), focal length(mm), distortion term)
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
+# Gaussian) <-- other options
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['0','0','../c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','../c_noFlat_Hg_0deg_10s.fits','1']
+#main(p,args)
+#*********************************************************************************************************************
+
+
+#Complete Solar Spectrum***********************************************************************************
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
+#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+args=['0','0','../solar.txt','1','0','1','0','0','../c_noFlat_sky_0deg_460_median.fits','0']
+main(p,args)
+#********************************************************************************************************
+
+
+#Spectral Resolution-CCDMap mercury without labels and with calibpoints******************************************************************************************************************
+#(beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+#         blaze period (microns), focal length(mm))
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
+# Gaussian) <-- other options
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['4','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#main(p,args)
+#*********************************************************************************************************************
+
+#Plot Errors Example**********************************************************************************
+#p_try=[ 272.45928478  , 91.17527895 ,  59.25339245 ,  89.61147631 ,  89.63791054,   89.81178189 ,  68.1669475 ,   63.3555271 ,   1.10221798 ,  31.8848023,  199.70165672] #best
+##p_try=[250.6, 64.2, 58.3, 77.9, 89.5, 85.5, 58.5, 61.7, 1.6, 33.7, 193.5] #doeesn't work
+## ok p_try=[279, 90.6, 59, 90, 89, 90, 70.75, 65, 0, 31.64, 210]
+##p_try = [278.6, 90.6, 61, 90, 91, 90, 70.75, 63.95, 0, 31.9, 210]
+##p_try = [278.2,90.8,59.0,90.4,88.9,89.7,70.8,65.1,0.758,31.67,203.1]
+#only h-alpha
+#p_try = [ 272.46778143,   91.14782003 ,  59.2663218 ,   89.65582564 ,  89.62544383,   89.76937348  , 68.19750843 ,  63.29873297  ,  1.10998689  , 31.92112407,  199.70153725]
+#
+###next
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#mainArgs=['4','0','../c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#temp , waves = main_errors(p, mainArgs)
+#x2=temp[0]
+#y2=temp[1]
+#
+#d=np.sqrt(x2**2+y2**2)
+#plt.ylabel('Error (Pixels)')
+#plt.xlabel('Emission Line (micrometers)')
+#plt.title('Fitting Error')
+#plt.scatter(waves,d)
+#plt.show()
+#********************************************************************************************************
+
+#Solar SPectrum CCDMap without labels***********************************************************************************
+#identify fraunhofer
+#SED fraunhofer
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
+#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['0','1','../solar.txt','1','0','0','0','0','../c_noFlat_sky_0deg_460_median.fits','0']
+#main(p,args)
+#********************************************************************************************************
+
+
+#Hg full spectrum******************************************************************************************************************
+#(beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+#         blaze period (microns), focal length(mm), distortion term)
+#(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
+#Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
+# Gaussian) <-- other options
+#p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
+#args=['0','0','../c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#main(p,args)
+#*********************************************************************************************************************
+
