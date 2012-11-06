@@ -17,7 +17,7 @@ from scipy import interpolate
 from astLib import astSED           
 
 #Math package 
-from math import cos, sin, acos, asin, pi, atan, degrees
+from math import cos, sin, acos, asin, pi, atan, degrees, radians
 
 '''
 Initial Parameters-------------------------------------------------------------- 
@@ -32,7 +32,10 @@ minOrder=90
 maxOrder=90
 deltaOrder=1
 maxOrder+=deltaOrder
+
+# still don't know what this is 
 booLog=6 
+# Pixel size in microns
 pixelSize= 5.4 
 
 def main_errors(p, mainArgs):
@@ -120,21 +123,21 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     booDistort = int(args[4])
     
     #Initial beam
-    uiphi = p[0]*pi/180              #'Longitude' with the x axis as 
-    uitheta = p[1]*pi/180            #Latitude with the y axis the polar axis
+    uiphi = radians(p[0])              #'Longitude' with the x axis as 
+    uitheta = radians(p[1])            #Latitude with the y axis the polar axis
     u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
        
     #Focal length
     fLength = p[10]
     
     #Prism surface 1
-    n1phi = p[2]*pi/180   
-    n1theta = p[3]*pi/180 
+    n1phi = radians(p[2])
+    n1theta = radians(p[3])
     n1=np.array([cos(n1phi)*sin(n1theta),sin(n1phi)*sin(n1theta),cos(n1theta)])
     
     #Prism surface 2
-    n2phi = p[4]*pi/180   
-    n2theta = p[5]*pi/180 
+    n2phi = radians(p[4])
+    n2theta = radians(p[5]) 
     n2=np.array([cos(n2phi)*sin(n2theta),sin(n2phi)*sin(n2theta),cos(n2theta)])
 
     #Prism surface 3 (surf #2 on return)
@@ -145,8 +148,8 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     
     #Grating
     d = p[9]  #blaze period in microns  
-    sphi = p[6]*pi/180   
-    stheta = p[7]*pi/180 
+    sphi = radians(p[6])   
+    stheta = radians(p[7]) 
     s = np.array([cos(sphi)*sin(stheta),sin(sphi)*sin(stheta),cos(stheta)]) #component perp to grooves
         
     #Now find two vectors perpendicular to s:
@@ -154,7 +157,7 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     b = np.cross(a,s)
     
     #Create l from given alpha using a and b as basis
-    alpha = p[8]*pi/180 
+    alpha = radians(p[8])
     l = cos(alpha)*a + sin(alpha)*b #component along grooves
        
     #Distortion np.array
@@ -187,8 +190,8 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         Lambda=CCDMap[:,2]
         #MJI...
         #p[11]=0
-        #newx = x*cos(pi*p[11]/180) - y*sin(pi*p[11]/180)
-        #newy = y*cos(pi*p[11]/180) + x*sin(pi*p[11]/180)
+        #newx = x*cos(radians(p[11])) - y*sin(radians(p[11]))
+        #newy = y*cos(radians(p[11])) + x*sin(radians(p[11]))
         #CCDMap[:,0]=newx.copy()
         #CCDMap[:,1]=newy.copy()
            
@@ -428,21 +431,21 @@ def x(Lambda, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.6764610
 #    booDistort = int(args[4])
     
     #Initial beam
-    uiphi = p[0]*pi/180              #'Longitude' with the x axis as 
-    uitheta = p[1]*pi/180            #Latitude with the y axis the polar axis
+    uiphi = radians(p[0])              #'Longitude' with the x axis as 
+    uitheta = radians(p[1])            #Latitude with the y axis the polar axis
     u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
        
     #Focal length
     fLength = p[10]
     
     #Prism surface 1
-    n1phi = p[2]*pi/180   
-    n1theta = p[3]*pi/180 
+    n1phi = radians(p[2])
+    n1theta = radians(p[3])
     n1=np.array([cos(n1phi)*sin(n1theta),sin(n1phi)*sin(n1theta),cos(n1theta)])
     
     #Prism surface 2
-    n2phi = p[4]*pi/180   
-    n2theta = p[5]*pi/180 
+    n2phi = radians(p[4])
+    n2theta = radians(p[5])
     n2=np.array([cos(n2phi)*sin(n2theta),sin(n2phi)*sin(n2theta),cos(n2theta)])
 
     #Prism surface 3 (surf #2 on return)
@@ -453,8 +456,8 @@ def x(Lambda, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.6764610
     
     #Grating
     d = p[9]  #blaze period in microns  
-    sphi = p[6]*pi/180   
-    stheta = p[7]*pi/180 
+    sphi = radians(p[6])
+    stheta = radians(p[7])
     s = np.array([cos(sphi)*sin(stheta),sin(sphi)*sin(stheta),cos(stheta)]) #component perp to grooves
         
     #Now find two vectors perpendicular to s:
@@ -462,7 +465,7 @@ def x(Lambda, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.6764610
     b = np.cross(a,s)
     
     #Create l from given alpha using a and b as basis
-    alpha = p[8]*pi/180 
+    alpha = radians(p[8])
     l = cos(alpha)*a + sin(alpha)*b #component along grooves
        
     #Distortion np.array
