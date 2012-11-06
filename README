@@ -13,7 +13,7 @@ This package is written in the Python programming language and requires the foll
 - scipy
 - astLib
 - math
-
+- bisect
 
 It also requires several files as input:
 
