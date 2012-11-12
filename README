@@ -21,3 +21,5 @@ It also requires several files as input:
 - a txt file for wavelength calibration, containing a list of wavelengths and pixel positions of a calibration soruce on the CCD (i.e. a frame taken with a Hg lamp as input)
 -------AT THIS MOMENT, THE FILE NAMES NEED TO BE HARDCODED IN THE INPUTS FOR THE PROGRAM FUNCTIONS----------------
 -------FUTURE VERSIONS WILL LIKELY HAVE THESE AS INPUTS WHEN THE CODE IS RAN--------------------------
+
+THIS IS JUST A TEST
