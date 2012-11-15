@@ -1,6 +1,5 @@
 #Imports
 import matplotlib.pyplot as plt     #python/matlab
-import pylab
 import random                       #random generator package
 import pyfits
 import os
@@ -16,8 +15,6 @@ from scipy import interpolate
 #Astro Libraries
 from astLib import astSED           
 
-#Math package 
-from math import cos, sin, acos, asin, pi, atan, degrees, sqrt, radians
 
 import bisect as bis
 
@@ -134,22 +131,22 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     booGaussianFit=int(args[9])
     
     #Initial beam
-    uiphi = radians(p[0])              #'Longitude' with the x axis as 
-    uitheta = radians(p[1])            #Latitude with the y axis the polar axis
-    u=np.array([cos(uiphi)*sin(uitheta),sin(uiphi)*sin(uitheta),cos(uitheta)])
+    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
+    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
+    u=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
        
     #Focal length
     fLength = p[10]
     
     #Prism surface 1
-    n1phi = radians(p[2])   
-    n1theta = radians(p[3]) 
-    n1=np.array([cos(n1phi)*sin(n1theta),sin(n1phi)*sin(n1theta),cos(n1theta)])
+    n1phi = np.radians(p[2])   
+    n1theta = np.radians(p[3]) 
+    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
     
     #Prism surface 2
-    n2phi = radians(p[4])   
-    n2theta = radians(p[5]) 
-    n2=np.array([cos(n2phi)*sin(n2theta),sin(n2phi)*sin(n2theta),cos(n2theta)])
+    n2phi = np.radians(p[4])   
+    n2theta = np.radians(p[5]) 
+    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
 
     #Prism surface 3 (surf #2 on return)
     n4=-n2
@@ -159,17 +156,17 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     
     #Grating
     d = p[9]  #blaze period in microns  
-    sphi = radians(p[6])   
-    stheta = radians(p[7]) 
-    s = np.array([cos(sphi)*sin(stheta),sin(sphi)*sin(stheta),cos(stheta)]) #component perp to grooves
+    sphi = np.radians(p[6])   
+    stheta = np.radians(p[7]) 
+    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves
         
     #Now find two vectors perpendicular to s:
     a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
     b = np.cross(a,s)
     
     #Create l from given alpha using a and b as basis
-    alpha = radians(p[8]) 
-    l = cos(alpha)*a + sin(alpha)*b #component along grooves
+    alpha = np.radians(p[8]) 
+    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
        
     #Distortion np.array
     K = [0] #p[11]
@@ -201,8 +198,8 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         Lambda=CCDMap[:,2]
         #MJI...
         #p[11]=0
-        #newx = x*cos(pi*p[11]/180) - y*sin(pi*p[11]/180)
-        #newy = y*cos(pi*p[11]/180) + x*sin(pi*p[11]/180)
+        #newx = x*np.cos(np.pi*p[11]/180) - y*np.sin(np.pi*p[11]/180)
+        #newy = y*np.cos(np.pi*p[11]/180) + x*np.sin(np.pi*p[11]/180)
         #CCDMap[:,0]=newx.copy()
         #CCDMap[:,1]=newy.copy()
            
@@ -350,7 +347,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
     
     #Loads SEDMap based on selection. 
     SEDMap = doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
-    blaze_angle= stheta #Approximately atan(2)
+    blaze_angle= stheta #Approximately np.arctan(2)
     allFlux=np.array([0])
     allLambdas=np.array([0])
     
@@ -360,8 +357,8 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
     for nOrder in range(minOrder, maxOrder, deltaOrder):
 
         #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-        LambdaBlMin = 2*d*sin(blaze_angle)/(nOrder+1) #Was 0.5
-        LambdaBlMax = 2*d*sin(blaze_angle)/(nOrder-1) #Was 0.5
+        LambdaBlMin = 2*d*np.sin(blaze_angle)/(nOrder+1) #Was 0.5
+        LambdaBlMax = 2*d*np.sin(blaze_angle)/(nOrder-1) #Was 0.5
  
         #SEDMapLoop is an array of wavelengths (paired with intensity) called SEDMap that are in this particular order.
         SEDMapLoop=SEDMap.copy()
@@ -509,7 +506,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
                 bestIndex=0
                 
                 for k in range(0,intersectEnd-intersectStart):
-                    currDistance=sqrt((allFlux[intersectStart+k]-cleanFlux[k])**2)
+                    currDistance=np.sqrt((allFlux[intersectStart+k]-cleanFlux[k])**2)
                     if currDistance<bestDistance:
                         bestDistance=currDistance
                         bestIndex=k
@@ -703,11 +700,11 @@ def Snell3D(n_i,n_r,u,n):
     u_p = u - np.dot(u,n)*n
     u_p /= np.linalg.norm(u_p)
     
-    theta_i = acos(np.dot(u,n))
+    theta_i = np.arccos(np.dot(u,n))
     
-    if n_i*sin(theta_i)/n_r<=1:
-        theta_f = asin(n_i*sin(theta_i)/n_r)
-        u = u_p*sin(pi-theta_f) + n*cos(pi-theta_f)    
+    if n_i*np.sin(theta_i)/n_r<=1:
+        theta_f = np.arcsin(n_i*np.sin(theta_i)/n_r)
+        u = u_p*np.sin(np.pi-theta_f) + n*np.cos(np.pi-theta_f)    
 
     return u       
 
@@ -837,12 +834,6 @@ def nkzfs8(Lambda):
     
     return n
     
-def column(matrix, i):
-    
-    a=[row[i] for row in matrix]
-    
-    return a    
-
 def wav2RGB(Lambda, Intensity):
     
     """Converts Lambda into RGB"""
@@ -924,7 +915,7 @@ def Intensity(Lambda, minLambda, maxLambda):
 #    x = 0.5*(float(Lambda) - 0.5*(float(maxLambda) - float(minLambda)))/(float(maxLambda) - float(minLambda))
     x = (((float(Lambda) - float(minLambda))/(float(maxLambda) - float(minLambda)))-0.5)*2
     if x!=0:
-        z=sin(x*pi)/(x*pi)
+        z=np.sin(x*np.pi)/(x*np.pi)
     z=1
 
 #    print x,z
@@ -1120,28 +1111,6 @@ def subtractDark(inFileName, darkFileName, outFilename):
     pyfits.writeto(outFilename, outFile)
                               
                                 
-def compareTemp(inFileName1,inFileName2, outFilename):
-
-
-    im1 = pyfits.getdata(inFileName1)
-    im2 = pyfits.getdata(inFileName2)
-
-    outFile=im2-im1
-
-    pyfits.writeto(outFilename, outFile)
-
-
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
 
 
 
