@@ -17,8 +17,9 @@ fftshift       ===> shifts an image by sub-pixel amounts in 2D
    
 """
 import numpy as np
-import os, pyfits
+import os, pyfits, random
 import pylab as pl
+from astLib import astSED
 
 
 def doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
