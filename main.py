@@ -25,12 +25,12 @@ import matplotlib.image as mpimg
 '''
 Initial Parameters-------------------------------------------------------------- 
 Wavelength'''
-minLambda=0.5886 #min wavelength
-maxLambda=0.59    #max wavelength
+minLambda=0.390 #min wavelength
+maxLambda=0.795    #max wavelength
 deltaLambda=0.0001    #step interval
 maxLambda+=deltaLambda
 
-#Can plot orders from  146 to 73 (about 390 to 795nm)
+#Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
 minOrder=146
 maxOrder=73
 deltaOrder=-1
@@ -51,7 +51,7 @@ def main_errors(p, mainArgs):
     #print p
     x,y,waveList,xSig,ySig = readCalibrationData(mainArgs[2])
 
-    hdulist = pyfits.open('../c_noFlat_sky_0deg_460_median.fits')
+    hdulist = pyfits.open('c_noFlat_sky_0deg_460_median.fits')
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
@@ -85,7 +85,7 @@ def main_errors(p, mainArgs):
 
 
 def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], 
-         args=['0','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','0','0','../solar.png']):#'../solar.txt'
+         args=['0','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','0','0','solar.png']):#'solar.txt'
 
     
     '''
@@ -362,7 +362,6 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
  
         #SEDMapLoop is an array of wavelengths (paired with intensity) called SEDMap that are in this particular order.
         SEDMapLoop=SEDMap.copy()
-        
         #constrain by +/- FSP (was FSP/2)
         SEDMapLoop = SEDMapLoop[SEDMapLoop[:,0]>=LambdaBlMin]
         if SEDMapLoop.shape[0]>0:       
@@ -388,8 +387,9 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
                 inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
                 outI=Intensity(Lambda, minLambda, maxLambda)              
                 dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
+                
         
-        #Order extraction        
+        #Order extraction
         if (booInterpolate==1 and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
             xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
             yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
@@ -414,7 +414,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             flux,flux2,flux3 = extractOrder(newX,newY,plotBackImage)
             
             #read flats
-            image ='../simple_flat.fits'
+            image ='simple_flat.fits'
             fluxFlat,flux2,flux3 = extractOrder(newX,newY,image)
             
             
@@ -427,7 +427,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             cleanFlux= flux/fluxFlat*BB#/nOrder**2#/np.max(fluxFlat))
 
             #Write flux to files
-#            f = open('../Order_'+ str(nOrder) +'.txt', 'w')
+#            f = open('Order_'+ str(nOrder) +'.txt', 'w')
 #            for k in range(0,len(Lambdas)):
 #                outText=str(Lambdas[k])+'\t'+ str(cleanFlux[k])+'\n'
 #                f.write(outText)
@@ -556,9 +556,11 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
 
     return CCDMap
 
-#backImage='../sky_0deg_2.FIT'
+#backImage='sky_0deg_2.FIT'
 
-def gauss(x, p): # p[0]==mean, p[1]==stdev
+def gauss(x, p): 
+    #Returs a gaussian probability distribution function based on a mean and standard deviation for a range x
+    # p[0]==mean, p[1]==stdev
     return 1.0/(p[1]*np.sqrt(2*np.pi))*np.exp(-(x-p[0])**2/(2*p[1]**2))
 
 def find_nearest(array,value):
@@ -586,13 +588,13 @@ def doPlot(CCDMap):
 
 #        labels = np.array([0])
 #         
-#        for line in open('../solar2.txt'):
+#        for line in open('solar2.txt'):
 #            Lambda = float(str(line).split()[0]) #Wavelength
 #            labels = np.vstack((labels,np.array([Lambda])))
 #
 #        labels=labels[1:]
         
-#        im=mpimg.imread('../solar.png')
+#        im=mpimg.imread('solar.png')
         
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
@@ -694,7 +696,7 @@ def rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l):
     return u, isValid
 
 def Snell3D(n_i,n_r,u,n):
-    """Computes the new direction of a vector whne changing medium. 
+    """Computes the new direction of a vector when changing medium. 
     n_i, n_r = incident and refractive indices"""
  
     u_p = u - np.dot(u,n)*n
@@ -810,7 +812,10 @@ def doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
     return SEDMap
 
 def readCalibrationData(calibrationFile):
+    #Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
+    CalibrationMap=np.loadtxt(calibrationFile)
     
+    '''
     CalibrationMap = np.array([0,0,0,0,0])
      
     for line in open(calibrationFile):
@@ -822,8 +827,7 @@ def readCalibrationData(calibrationFile):
         CalibrationMap = np.vstack((CalibrationMap,np.array([x,y,Lambda,xSig,ySig])))
     
     CalibrationMap=CalibrationMap[1:,]  
-    
-
+    '''
     
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
 
@@ -1006,7 +1010,7 @@ def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,
     Notes
     -----
     '''  
-    mainArgs=['4','0',calibrationFile,'0','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits']   
+    mainArgs=['4','0',calibrationFile,'0','0','0','0','1','c_noFlat_sky_0deg_460_median.fits']   
     #old mainArgs=['4','0',calibrationFile,'0','0']
     #x,y, wavelist are the positions of the peaks in calibrationFile.
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
@@ -1124,80 +1128,80 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #medianCombine(inFiles, outFilename)
 
 #
-#p=findFit('../c_noFlat_Hg_0deg_10s.txt')
+#p=findFit('c_noFlat_Hg_0deg_10s.txt')
 #print p[0]
 #main(p[0])
 
 #main()
 
-#compareTemp('../6hrs/Medians/med1_5.fits','../6hrs/Medians/med711_715.fits','../6hrs/Results/out1.fits')
+#compareTemp('6hrs/Medians/med1_5.fits','6hrs/Medians/med711_715.fits','6hrs/Results/out1.fits')
 
 #batchAverage2()
 
 #batchMedian()
 
-#inFiles = ['../sky_0deg_460_%01d.fits' % k for k in range(1,4)]
-#medianCombine(inFiles, '../sky_0deg_460_median.fits')
-#inFiles = ['../sky_0deg_1550_%01d.fits' % k for k in range(1,4)]
-#medianCombine(inFiles, '../sky_0deg_1550_median.fits')
+#inFiles = ['sky_0deg_460_%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, 'sky_0deg_460_median.fits')
+#inFiles = ['sky_0deg_1550_%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, 'sky_0deg_1550_median.fits')
 
-#inFiles = ['../sky_0deg_460_%01d.fits' % k for k in range(1,4)]
-#averageCombine(inFiles, '../sky_0deg_460_average.fits')
-#inFiles = ['../sky_0deg_1550_%01d.fits' % k for k in range(1,4)]
-#averageCombine(inFiles, '../sky_0deg_1550_average.fits')
+#inFiles = ['sky_0deg_460_%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles, 'sky_0deg_460_average.fits')
+#inFiles = ['sky_0deg_1550_%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles, 'sky_0deg_1550_average.fits')
 
-#calibrateImage('../sky_0deg_460_median.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_median.fits')
-#calibrateImage('../sky_0deg_1550_median.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_1550_median.fits')
+#calibrateImage('sky_0deg_460_median.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_460_median.fits')
+#calibrateImage('sky_0deg_1550_median.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_1550_median.fits')
 
-#calibrateImage('../Hg_0deg_10s.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_Hg_0deg_10s.fits')
+#calibrateImage('Hg_0deg_10s.fits','mbias.fits','mdark.fits','mflat.fits','c_Hg_0deg_10s.fits')
 
-#calibrateImage('../sky_0deg_460_1.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_1.fits')
-#calibrateImage('../sky_0deg_460_2.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_2.fits')
-#calibrateImage('../sky_0deg_460_3.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_460_3.fits')
+#calibrateImage('sky_0deg_460_1.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_460_1.fits')
+#calibrateImage('sky_0deg_460_2.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_460_2.fits')
+#calibrateImage('sky_0deg_460_3.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_460_3.fits')
 
-#calibrateImage('../sky_0deg_1550_median.fits','../mbias.fits','../mdark.fits','../mflat.fits','../c_noFlat_sky_0deg_1550_median.fits')
-
-
+#calibrateImage('sky_0deg_1550_median.fits','mbias.fits','mdark.fits','mflat.fits','c_noFlat_sky_0deg_1550_median.fits')
 
 
-#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
-#medianCombine(inFiles, '../dark_a_median.fits')
+
+
+#inFiles = ['dark_a%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, 'dark_a_median.fits')
 #
-#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
-#averageCombine(inFiles,  '../dark_a_average.fits')
-#
-#
-#subtractDark('../arcturus_1min_1.fits','../dark_a_average.fits','../c_arcturus_1min_1.fits')
-#subtractDark('../arcturus_1min_2.fits','../dark_a_average.fits','../c_arcturus_1min_2.fits')
-#subtractDark('../arcturus_1min_3.fits','../dark_a_average.fits','../c_arcturus_1min_3.fits')
-#subtractDark('../arcturus_1min_4.fits','../dark_a_average.f#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
-#medianCombine(inFiles, '../dark_a_median.fits')
-#
-#inFiles = ['../dark_a%01d.fits' % k for k in range(1,4)]
-#averageCombine(inFiles,  '../dark_a_average.fits')
+#inFiles = ['dark_a%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles,  'dark_a_average.fits')
 #
 #
-#subtractDark('../arcturus_1min_1.fits','../dark_a_average.fits','../c_arcturus_1min_1.fits')
-#subtractDark('../arcturus_1min_2.fits','../dark_a_average.fits','../c_arcturus_1min_2.fits')
-#subtractDark('../arcturus_1min_3.fits','../dark_a_average.fits','../c_arcturus_1min_3.fits')
-#subtractDark('../arcturus_1min_4.fits','../dark_a_average.fits','../c_arcturus_1min_4.fits')
+#subtractDark('arcturus_1min_1.fits','dark_a_average.fits','c_arcturus_1min_1.fits')
+#subtractDark('arcturus_1min_2.fits','dark_a_average.fits','c_arcturus_1min_2.fits')
+#subtractDark('arcturus_1min_3.fits','dark_a_average.fits','c_arcturus_1min_3.fits')
+#subtractDark('arcturus_1min_4.fits','dark_a_average.f#inFiles = ['dark_a%01d.fits' % k for k in range(1,4)]
+#medianCombine(inFiles, 'dark_a_median.fits')
 #
-#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
-#medianCombine(inFiles, '../c_arcturus_1min_median.fits')
+#inFiles = ['dark_a%01d.fits' % k for k in range(1,4)]
+#averageCombine(inFiles,  'dark_a_average.fits')
 #
-#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
-#averageCombine(inFiles, '../c_arcturus_1min_average.fits')its','../c_arcturus_1min_4.fits')
 #
-#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
-#medianCombine(inFiles, '../c_arcturus_1min_median.fits')
+#subtractDark('arcturus_1min_1.fits','dark_a_average.fits','c_arcturus_1min_1.fits')
+#subtractDark('arcturus_1min_2.fits','dark_a_average.fits','c_arcturus_1min_2.fits')
+#subtractDark('arcturus_1min_3.fits','dark_a_average.fits','c_arcturus_1min_3.fits')
+#subtractDark('arcturus_1min_4.fits','dark_a_average.fits','c_arcturus_1min_4.fits')
 #
-#inFiles = ['../c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
-#averageCombine(inFiles, '../c_arcturus_1min_average.fits')
+#inFiles = ['c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#medianCombine(inFiles, 'c_arcturus_1min_median.fits')
+#
+#inFiles = ['c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#averageCombine(inFiles, 'c_arcturus_1min_average.fits')its','c_arcturus_1min_4.fits')
+#
+#inFiles = ['c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#medianCombine(inFiles, 'c_arcturus_1min_median.fits')
+#
+#inFiles = ['c_arcturus_1min_%01d.fits' % k for k in range(1,5)]
+#averageCombine(inFiles, 'c_arcturus_1min_average.fits')
 
 
 #print x(0.502)
 
-#p=main_errors(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005], ['4','1','../c_noFlat_Hg_0deg_10s.txt','1','0'])
+#p=main_errors(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005], ['4','1','c_noFlat_Hg_0deg_10s.txt','1','0'])
 
 #main(p = [279, 90.6, 59, 90, 89, 90, 70.75, 65, 0, 31.64, 210])
 #main(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005]) ####best fit so far....
@@ -1214,7 +1218,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 
 #best p for previous fitting:
 #p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005]
-#'../c_noFlat_Hg_0deg_10s.fits')#,'../solar.png')#,'../mdark.fits')#,'../simple_flat.fits')#
+#'c_noFlat_Hg_0deg_10s.fits')#,'solar.png')#,'mdark.fits')#,'simple_flat.fits')#
 
 
 #Fraunhofer Lines-CCDMap with labels***********************************************************************************
@@ -1222,9 +1226,9 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #SED fraunhofer
 #(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
-#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+#Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits','0']
+#args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits','0']
 #main(p,args)
 #********************************************************************************************************
 
@@ -1243,9 +1247,9 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #
 #diag_try=[1,1,1,1,1,1,1,1,1,0.1,1]
 #factor_try=0.3
-#p=findFit('../arcturus.txt',p_try, factor_try, diag_try)
+#p=findFit('arcturus.txt',p_try, factor_try, diag_try)
 #print p[0]
-#main(p[0],args=['4','1','../arcturus.txt','1','0','0','1','0','../c_arcturus_1min_4.fits','0'])
+#main(p[0],args=['4','1','arcturus.txt','1','0','0','1','0','c_arcturus_1min_4.fits','0'])
 #********************************************************************************************************
 
 
@@ -1258,7 +1262,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #p=[ 272.45928478  , 91.5 ,  59.25339245 ,  89.61147631 ,  89.63791054,   89.81178189 ,  68.1669475 ,   63.3555271 ,   1.10221798 ,  31.8848023,  200] 
 #p=[ 272.35233865 ,  91.17544429  , 59.24907075 ,  90.19912466  , 89.63148374,   89.2621423  ,  68.1372743   , 62.95098288   , 1.0992334  ,  32.24603515,  199.65078345]
 #p = [ 271.9473,   91.137 ,  59.2663218 ,   89.65582564 ,  89.62544383,   89.76937348  , 68.19750843 ,  63.29873297  ,  1.65  , 31.92112407,  199.70153725]
-#main(p,args=['0','1','../arcturus.txt','1','0','1','0','0','../c_arcturus_1min_4.fits','0'])
+#main(p,args=['0','1','arcturus.txt','1','0','1','0','0','c_arcturus_1min_4.fits','0'])
 #*********************************************************************************************************************
 
 #Spectral Resolution-CCDMap mercury with labels******************************************************************************************************************
@@ -1268,7 +1272,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','0','1','../c_noFlat_Hg_0deg_10s.fits','0']
+#args=['4','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','0','1','c_noFlat_Hg_0deg_10s.fits','0']
 #main(p,args)
 #*********************************************************************************************************************
 
@@ -1280,7 +1284,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['0','0','../c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','../c_noFlat_Hg_0deg_10s.fits','1']
+#args=['0','0','c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','c_noFlat_Hg_0deg_10s.fits','1']
 #main(p,args)
 #*********************************************************************************************************************
 
@@ -1288,9 +1292,9 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Complete Solar Spectrum***********************************************************************************
 #(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
-#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+#Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-args=['0','0','../solar.txt','1','0','1','0','0','../c_noFlat_sky_0deg_460_median.fits','0']
+args=['0','0','solar.txt','1','0','1','0','0','c_noFlat_sky_0deg_460_median.fits','0']
 main(p,args)
 #********************************************************************************************************
 
@@ -1302,7 +1306,7 @@ main(p,args)
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','../c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#args=['4','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','c_noFlat_Hg_0deg_10s.fits','0']
 #main(p,args)
 #*********************************************************************************************************************
 
@@ -1317,7 +1321,7 @@ main(p,args)
 #
 ###next
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#mainArgs=['4','0','../c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#mainArgs=['4','0','c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','c_noFlat_Hg_0deg_10s.fits','0']
 #temp , waves = main_errors(p, mainArgs)
 #x2=temp[0]
 #y2=temp[1]
@@ -1335,9 +1339,9 @@ main(p,args)
 #SED fraunhofer
 #(SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile/calibfile, 
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
-#Gaussian) <-- other options#main(args=['4','1','../solar.txt','1','0','0','0','1','../c_noFlat_sky_0deg_460_median.fits'])
+#Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['0','1','../solar.txt','1','0','0','0','0','../c_noFlat_sky_0deg_460_median.fits','0']
+#args=['0','1','solar.txt','1','0','0','0','0','c_noFlat_sky_0deg_460_median.fits','0']
 #main(p,args)
 #********************************************************************************************************
 
@@ -1349,7 +1353,7 @@ main(p,args)
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['0','0','../c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','../c_noFlat_Hg_0deg_10s.fits','0']
+#args=['0','0','c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','c_noFlat_Hg_0deg_10s.fits','0']
 #main(p,args)
 #*********************************************************************************************************************
 
