@@ -41,7 +41,9 @@ booLog=6
 pixelSize= 5.4 
 
 
-def main_errors(p, mainArgs):
+
+
+def main_errors(p, SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):
     #main will return these vectors in a random order. 
     #We assume that there are no rounding errors (probably a hack?)
     #and will use a floating point == to identify the (x,y) corresponding
@@ -51,7 +53,7 @@ def main_errors(p, mainArgs):
     #i.e. when going from SEDMap to SEDMapLoop the information on which line in
     #the input each wavelength came from was lost.
     #print p
-    x,y,waveList,xSig,ySig = readCalibrationData(mainArgs[2])
+    x,y,waveList,xSig,ySig = readCalibrationData(specFile)
 
     hdulist = pyfits.open('c_noFlat_sky_0deg_460_median.fits')
     imWidth = hdulist[0].header['NAXIS1']
@@ -60,7 +62,7 @@ def main_errors(p, mainArgs):
     x=x-imWidth/2
     y=y-imHeight/2
     
-    x_model, y_model, Lambda = main(p, mainArgs)
+    x_model, y_model, Lambda = main(p, SEDMode,booPlot,specFile,intNormalize,booDistort,booInterpolate,booPlotCalibPoints,booPlotLabels,plotBackImage,booGaussianFit)
     
     #Loop through the input wavelengths, and find the closest output.
     #The best model fits in x and y (out of 2 options) is called x_best and y_best
@@ -86,8 +88,7 @@ def main_errors(p, mainArgs):
 
 
 
-def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], 
-         args=['0','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','0','0','solar.png']):#'solar.txt'
+def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):
 
     
     '''
@@ -114,24 +115,9 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     -----  
     '''  
     
-    global n1, n2, n4, n5, s, l, d, flux, booInterpolate, plotBackImage
-    global booPlot, specFile, booPlotCalibPoints, allFlux,booPlotLabels, specFile
-    global booGaussianFit
-    
+    global n1, n2, n4, n5, s, l, d, flux
+    global allFlux
 
-    
-    #Args breakdown
-    SEDMode = int(args[0])
-    booPlot = int(args[1])
-    specFile = args[2]
-    intNormalize = int(args[3])
-    booDistort = int(args[4])
-    booInterpolate=int(args[5])
-    booPlotCalibPoints=int(args[6])
-    booPlotLabels=int(args[7])
-    plotBackImage=args[8]
-    booGaussianFit=int(args[9])
-    
     #Initial beam
     uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
     uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
@@ -174,11 +160,11 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
     K = [0] #p[11]
        
     #Launch grid loop. Creates an array of (x,y,lambda)
-    CCDMap = doCCDMap(u ,minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta, SEDMode, intNormalize) 
+    CCDMap = doCCDMap(u ,minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta, SEDMode, intNormalize,booInterpolate,BackImage=plotBackImage,GaussFit=booGaussianFit) 
         
         
     #Distort
-    if booDistort==1:
+    if booDistort==True:
         x=CCDMap[:,0]
         y=CCDMap[:,1]
         CCDMap[:,0], CCDMap[:,1] = distort(x, y, K)
@@ -206,14 +192,14 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         #CCDMap[:,1]=newy.copy()
            
     #Plot
-    if booPlot==1:
-        doPlot(CCDMap)
+    if booPlot==True:
+        doPlot(CCDMap,CalibPoints=booPlotCalibPoints,Labels=booPlotLabels,BackImage=plotBackImage)
     
     return x, y, Lambda
 
 
     
-def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrder, fLength, stheta, SEDMode, intNormalize):
+def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrder, fLength, stheta, SEDMode, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     
     dataOut=np.zeros(5)
 
@@ -263,7 +249,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
                 
         
         #Order extraction
-        if (booInterpolate==1 and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
+        if (Interpolate==True and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
             xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
             yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
             LambdaPlot=dataOut[dataOut[:,4]==nOrder][:,2]
@@ -272,7 +258,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
           
             
-            hdulist = pyfits.open(plotBackImage)
+            hdulist = pyfits.open(BackImage)
             imWidth = hdulist[0].header['NAXIS1']
             imHeight = hdulist[0].header['NAXIS2']
             
@@ -284,7 +270,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             newX=newX[-nanMap]
             newY=newY[-nanMap]
                     
-            flux,flux2,flux3 = wt.extractOrder(newX,newY,plotBackImage)
+            flux,flux2,flux3 = wt.extractOrder(newX,newY,BackImage)
             
             #read flats
             image ='simple_flat.fits'
@@ -312,7 +298,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
             
 
             # Fit a Gaussian             
-            if booGaussianFit==1: 
+            if GaussFit==True: 
 #                # Create some sample data
 #                known_param = np.array([2.0, .7])
 #                xmin,xmax = -1.0, 5.0
@@ -395,7 +381,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
                 allLambdas=Lambdas
                 allFlux=cleanFlux
              
-#            if booInterpolate==1:   
+#            if Interpolate==True:   
 #                
 #                fig = plt.figure()
 #                plt.ylabel('Intensity (Counts)')
@@ -409,7 +395,7 @@ def doCCDMap(u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrde
 #                plt.show()
 #    
 
-    if booInterpolate==1:   
+    if Interpolate==True:   
 #        a=np.sort(allFlux,0)
 #        params = {'legend.fontsize': 200,
 #          'legend.linewidth': 2}
@@ -436,7 +422,7 @@ def gauss(x, p):
     # p[0]==mean, p[1]==stdev
     return 1.0/(p[1]*np.sqrt(2*np.pi))*np.exp(-(x-p[0])**2/(2*p[1]**2))
 
-def doPlot(CCDMap):
+def doPlot(CCDMap,CalibPoints=False,Labels=False,BackImage=''):
         x = CCDMap[:,0] 
         z = CCDMap[:,1] 
         Lambda = CCDMap[:,2] 
@@ -444,11 +430,11 @@ def doPlot(CCDMap):
 
         colorTable = np.array((wav2RGB(Lambda, Intensity))) 
         
-        hdulist = pyfits.open(plotBackImage)
+        hdulist = pyfits.open(BackImage)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
 
-        im = pyfits.getdata(plotBackImage)
+        im = pyfits.getdata(BackImage)
         im[im<0]=0
         im /= im.max()
         im = np.sqrt(im) #Remove this line for Hg
@@ -474,7 +460,7 @@ def doPlot(CCDMap):
 #        color=colorTable
 #        print random.randrange(-30,-10) random()
 #        plt.subplots_adjust(bottom = 0.1)
-        if booPlotLabels==1:
+        if Labels==True:
             for label, x, y in zip(Lambda, x, -z):
                 plt.annotate(
                     label, 
@@ -492,7 +478,7 @@ def doPlot(CCDMap):
         
         
         
-        if booPlotCalibPoints==1:
+        if CalibPoints==True:
             x,y,waveList,xSig,ySig = readCalibrationData(specFile)
             ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=400, color='black', marker='x', alpha=1)
 
@@ -646,14 +632,13 @@ def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,
     Notes
     -----
     '''  
-    mainArgs=['4','0',calibrationFile,'0','0','0','0','1','c_noFlat_sky_0deg_460_median.fits']   
     #old mainArgs=['4','0',calibrationFile,'0','0']
     #x,y, wavelist are the positions of the peaks in calibrationFile.
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
 
-    fit = leastsq(main_errors,p_try, args=mainArgs, full_output=True, factor=factor_try, diag=diag_try)
-#    fit = leastsq(main_errors, [278.2,90.8,59.0,90.4,88.9,89.7,68.8,65.1,0.758,31.67,203.1], args=mainArgs, full_output=True,factor,diag )
+    fit = leastsq(main_errors,p_try, args=[4,False,calibrationFile,0,False,False,False,True,'c_noFlat_sky_0deg_460_median.fits',False], full_output=True, factor=factor_try, diag=diag_try)
+
 
     return fit
    
@@ -764,9 +749,9 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #medianCombine(inFiles, outFilename)
 
 #
-#p=findFit('c_noFlat_Hg_0deg_10s.txt')
-#print p[0]
-#main(p[0])
+#fit,success=findFit('c_noFlat_Hg_0deg_10s.txt')
+#print fit
+#main(p=fit)
 
 #main()
 
@@ -837,7 +822,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 
 #print x(0.502)
 
-#p=main_errors(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005], ['4','1','c_noFlat_Hg_0deg_10s.txt','1','0'])
+#p=main_errors(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005], SEDMode=4,booPlot=True,specFile='c_noFlat_Hg_0deg_10s.txt')
 
 #main(p = [279, 90.6, 59, 90, 89, 90, 70.75, 65, 0, 31.64, 210])
 #main(p = [ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005]) ####best fit so far....
@@ -864,8 +849,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
 #Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits','0']
-#main(p,args)
+#main(p,SEDMode=4,booPlot=True,specFile='solar.txt')
 #********************************************************************************************************
 
 
@@ -883,9 +867,9 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #
 #diag_try=[1,1,1,1,1,1,1,1,1,0.1,1]
 #factor_try=0.3
-#p=findFit('arcturus.txt',p_try, factor_try, diag_try)
-#print p[0]
-#main(p[0],args=['4','1','arcturus.txt','1','0','0','1','0','c_arcturus_1min_4.fits','0'])
+#fit, success=findFit('arcturus.txt',p_try, factor_try, diag_try)
+#print fit
+#main(fit,SEDMode=4,booPlot=True,specFile='arcturus.txt',booPlotCalibPoints=True,plotBackImage='c_arcturus_1min_4.fits')
 #********************************************************************************************************
 
 
@@ -898,7 +882,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #p=[ 272.45928478  , 91.5 ,  59.25339245 ,  89.61147631 ,  89.63791054,   89.81178189 ,  68.1669475 ,   63.3555271 ,   1.10221798 ,  31.8848023,  200] 
 #p=[ 272.35233865 ,  91.17544429  , 59.24907075 ,  90.19912466  , 89.63148374,   89.2621423  ,  68.1372743   , 62.95098288   , 1.0992334  ,  32.24603515,  199.65078345]
 #p = [ 271.9473,   91.137 ,  59.2663218 ,   89.65582564 ,  89.62544383,   89.76937348  , 68.19750843 ,  63.29873297  ,  1.65  , 31.92112407,  199.70153725]
-#main(p,args=['0','1','arcturus.txt','1','0','1','0','0','c_arcturus_1min_4.fits','0'])
+#main(p,SEDMode=0,booPlot=True,specFile='arcturus.txt',booInterpolate=True,plotBackImage='c_arcturus_1min_4.fits')
 #*********************************************************************************************************************
 
 #Spectral Resolution-CCDMap mercury with labels******************************************************************************************************************
@@ -908,8 +892,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','0','1','c_noFlat_Hg_0deg_10s.fits','0']
-#main(p,args)
+#main(p,SEDMode=4,booPlot=True,specFile='c_noFlat_Hg_0deg_10s.txt',booPlotLabels=True,plotBackImage='c_noFlat_sky_0deg_460_median.fits')
 #*********************************************************************************************************************
 
 
@@ -921,7 +904,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
 #args=['0','0','c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','c_noFlat_Hg_0deg_10s.fits','1']
-#main(p,args)
+#main(p,SEDMode=0,specFile='c_noFlat_Hg_0deg_10s.txt',booInterpolate=True,plotBackImage='c_noFlat_Hg_0deg_10s.fits',booGaussianFit=True)
 #*********************************************************************************************************************
 
 
@@ -930,8 +913,7 @@ def subtractDark(inFileName, darkFileName, outFilename):
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
 #Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-args=['0','0','solar.txt','1','0','1','0','0','c_noFlat_sky_0deg_460_median.fits','0']
-main(p,args)
+main(p,SEDMode=0,specFile='solar.txt',booInterpolate=True,plotBackImage='c_noFlat_sky_0deg_460_median.fits')
 #********************************************************************************************************
 
 
@@ -942,8 +924,7 @@ main(p,args)
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['4','1','c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','c_noFlat_Hg_0deg_10s.fits','0']
-#main(p,args)
+#main(p,SEDMode=4,booPlot=True,specFile='c_noFlat_Hg_0deg_10s.txt',booPlotCalibPoints=True,plotBackImage='c_noFlat_Hg_0deg_10s.fits')
 #*********************************************************************************************************************
 
 #Plot Errors Example**********************************************************************************
@@ -957,8 +938,7 @@ main(p,args)
 #
 ###next
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#mainArgs=['4','0','c_noFlat_Hg_0deg_10s.txt','1','0','0','1','0','c_noFlat_Hg_0deg_10s.fits','0']
-#temp , waves = main_errors(p, mainArgs)
+#temp , waves = main_errors(p, SEDMode=4,specFile='c_noFlat_Hg_0deg_10s.txt',booPlotCalibPoints=True,PlotBackImage='c_noFlat_Hg_0deg_10s.fits')
 #x2=temp[0]
 #y2=temp[1]
 #
@@ -977,8 +957,7 @@ main(p,args)
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile, 
 #Gaussian) <-- other options#main(args=['4','1','solar.txt','1','0','0','0','1','c_noFlat_sky_0deg_460_median.fits'])
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['0','1','solar.txt','1','0','0','0','0','c_noFlat_sky_0deg_460_median.fits','0']
-#main(p,args)
+#main(p,SEDMode=0,booPlotTrue,specFile='solar.txt',plotBackImage='c_noFlat_sky_0deg_460_median.fits')
 #********************************************************************************************************
 
 
@@ -989,7 +968,6 @@ main(p,args)
 #Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints, booPlotLabels, plotbackfile,
 # Gaussian) <-- other options
 #p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]
-#args=['0','0','c_noFlat_Hg_0deg_10s.txt','1','0','1','0','0','c_noFlat_Hg_0deg_10s.fits','0']
-#main(p,args)
+#main(p,SEDMode=0,specFile='c_noFlat_Hg_0deg_10s.txt,booInterpolate=True,plotBackImage='c_noFlat_Hg_0deg_10s.fits')
 #*********************************************************************************************************************
 
