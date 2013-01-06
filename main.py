@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.cm as cm
 import wsmtools as wt
 
+#this is a test change
 
 #least square package
 from scipy.optimize.minpack import leastsq
