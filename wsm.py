@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 import wsmtools as wt
 from constants import *
 import defaults
+import parser
 
 #least square package
 from scipy.optimize.minpack import leastsq
@@ -24,6 +25,7 @@ import matplotlib.image as mpimg
 
 
 
+
 '''
 Initial Parameters-------------------------------------------------------------- 
 Wavelength'''
@@ -37,7 +39,6 @@ minOrder=80
 maxOrder=100
 deltaOrder=1
 maxOrder+=deltaOrder
-booLog=6 
 pixelSize= 5.4 
 
 
@@ -199,7 +200,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     #Distortion np.array
     K = [] #p[11]
        
-    #Launch grid loop. Creates an array of (x,y,lambda)
+    #Launch grid loop. Creates an array of (x,y,lambda, Inensity, Order)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wp.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort
@@ -302,5 +303,6 @@ def doFindFit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.489973
 
     fit = leastsq(wt.fit_errors,p_try, args=[4,False,calibDataFileName,0,False,False,False,True,'c_noFlat_sky_0deg_460_median.fits',False], full_output=True, factor=factor_try, diag=diag_try)
 
-
     return fit
+
+

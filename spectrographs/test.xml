@@ -1,0 +1,27 @@
+﻿<spectrograph name="RHEA">
+  <focal_length>199.13548823</focal_length>
+    <beams>
+      <beam>
+        <phi>272.31422902</phi>
+        <theta>90.7157937</theta>
+      </beam>
+    </beams>
+    <optical_elements>
+    	<optical_element type="boundary">
+    	  <medium>nkzfs8</medium>
+    	  <phi>59.6543365</phi>
+    	  <theta>90.21334551</theta>
+    	</optical_element>
+   	<optical_element type="boundary">
+    	  <medium>air</medium>
+    	  <phi>89.67646101</phi>
+    	  <theta> 89.82098015</theta>
+    	</optical_element>
+  	<optical_element type="RGrating">
+     	  <phi>68.0936684</phi>
+    	  <theta> 65.33694031</theta>
+        <alpha>1.19265536</alpha>
+        <bl_period>31.50321471</bl_period>
+    	</optical_element>
+    </optical_elements>
+</spectrograph>

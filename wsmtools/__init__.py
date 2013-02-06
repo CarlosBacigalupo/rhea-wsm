@@ -30,12 +30,12 @@ def nkzfs8(Lambda):
     
     return n
     
-def n(Lambda, Method, t=18, p=101325):
+def n(Lambda, Material='air', t=18, p=101325):
     
-    if Method==0:
+    if Material=='air':
         '''Function that calculates the refractive index of air for a given wavelength'''
         n = (0.0472326 * (173.3 - (1/Lambda)**2)**(-1))+1
-    else:  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
+    elif Material=='nkzfs8':  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
         '''Function that calculates the refractive index of the prism for a given wavelength'''
         x = float(Lambda)
         n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
