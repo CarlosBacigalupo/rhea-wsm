@@ -1,19 +1,19 @@
-#import wsm
-#
-#a=wsm.doSEDMap()
-#
-#b=wsm.doCCDMap(a)
-#print b
-#wsm.doPlot(b)
-#
-#
-#print "3"
-import xml_parser
+import wsm
+
+a=wsm.doSEDMap()
+ 
+b=wsm.doCCDMap(a)
+print b
+wsm.doPlot(b)
 
 
-p=xml_parser.read_Optics()
-
-print p
+print "3"
+#import xml_parser
+#
+#
+#p=xml_parser.read_Optics()
+#
+#print p
 
 #os.chdir('/media/win-desktop/6hrs/Darks')
 #inFiles = ['Hg_6hrs_20s_D%01d.FIT' % k for k in range(1,6)]

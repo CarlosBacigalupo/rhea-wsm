@@ -34,16 +34,11 @@ Wavelength'''
 #deltaLambda=0.001    #step interval
 #maxLambda+=deltaLambda
 
-#Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
-minOrder=80
-maxOrder=100
-deltaOrder=1
-maxOrder+=deltaOrder
-pixelSize= 5.4 
 
 
 
-def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=0.0001, intNormalize=0):
+
+def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=0.0001, intNormalize=0): #todo change format to SEDMap to be equal SEDFlat
     '''
     Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -74,7 +69,7 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=
     -----
     '''  
     if SEDMode==SEDModeFlat: #Flat
-        SEDMap = np.column_stack((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
+        SEDMap = np.array((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
 
     elif SEDMode==SEDModeRandom: #Random
         SEDMap = np.array([0,0])
@@ -120,12 +115,12 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=
                 
     """Normalize the intensity"""   
     if intNormalize!=0:    
-        fluxRange=(max(SEDMap[:,1])-min(SEDMap[:,1]))
+        fluxRange=(max(SEDMap[SEDMapLambda])-min(SEDMap[SEDMapLambda]))
         
         if fluxRange==0:
-            SEDMap = np.column_stack((SEDMap[:,0], np.ones(SEDMap[:,0].size)))  
+            SEDMap = np.array((SEDMap[SEDMapLambda], np.ones(SEDMap[SEDMapLambda].size)))  
         else:
-            SEDMap = np.column_stack((SEDMap[:,0], (SEDMap[:,1]-min(SEDMap[:,1]))/(fluxRange+1) ))
+            SEDMap = np.array((SEDMap[SEDMapLambda], (SEDMap[SEDMapIntensity]-min(SEDMap[SEDMapIntensity]))/(fluxRange+1) ))
        
     return SEDMap
 
@@ -173,7 +168,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     n2phi = np.radians(p[4])   
     n2theta = np.radians(p[5]) 
     n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
-    Optics = np.append([[n1,[0,0,0],OpticsPrism,1,0]], [[n2,[0,0,0],OpticsPrism,0,0]], 0)
+    Optics = np.append([[n1,[0,0,0],OpticsPrism,'nkzfs8',0]], [[n2,[0,0,0],OpticsPrism,'air',0]], 0)
     
     #Grating
     d = p[9]  #blaze period in microns  
@@ -186,22 +181,22 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     #Create l from given alpha using a and b as basis
     alpha = np.radians(p[8]) 
     l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
-    Optics = np.append(Optics, [[s,l,OpticsRGrating,0,d]], 0)
+    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
     
     
     #Prism surface 3 (surf #2 on return)
     n4=-n2
-    Optics = np.append(Optics,[[n4,[0,0,0],OpticsPrism,1,0]], 0)
+    Optics = np.append(Optics,[[n4,[0,0,0],OpticsPrism,'nkzfs8',0]], 0)
     
     #Prism surface 4 (surf #1 on return)
     n5=-n1     
-    Optics = np.append(Optics, [[n5,[0,0,0],OpticsPrism,0,0]], 0)
+    Optics = np.append(Optics, [[n5,[0,0,0],OpticsPrism,'air',0]], 0)
 
     #Distortion np.array
     K = [] #p[11]
        
     #Launch grid loop. Creates an array of (x,y,lambda, Inensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wp.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort
     if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)

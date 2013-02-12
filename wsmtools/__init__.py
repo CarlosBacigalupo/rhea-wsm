@@ -30,12 +30,12 @@ def nkzfs8(Lambda):
     
     return n
     
-def n(Lambda, Material='air', t=18, p=101325):
+def n(Lambda, medium='air', t=18, p=101325):
     
-    if Material=='air':
+    if medium=='air':
         '''Function that calculates the refractive index of air for a given wavelength'''
         n = (0.0472326 * (173.3 - (1/Lambda)**2)**(-1))+1
-    elif Material=='nkzfs8':  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
+    elif medium=='nkzfs8':  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
         '''Function that calculates the refractive index of the prism for a given wavelength'''
         x = float(Lambda)
         n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
@@ -142,7 +142,7 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
     "loops through optics array"
     for i in range(len(Optics)):
 
-        if i==0: n_i=n(Lambda,0)
+        if i==0: n_i=n(Lambda,'air')
         optType=Optics[i][OpticsType]
         n_r=n(Lambda,Optics[i][OpticsN])
         
@@ -152,7 +152,7 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
         elif optType==OpticsRGrating:
             isValid=False
             GPeriod=Optics[i][OpticsGPeriod]
-            if (Lambda >= 2*GPeriod*np.sin(blaze_angle)/(nOrder+1) and Lambda <= 2*GPeriod*np.sin(blaze_angle)/(nOrder-1)):
+            if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
                 s=Optics[i][OpticsCoords1]
                 l=Optics[i][OpticsCoords2]
                 Beam, isValid = Grating(Beam, s, l, nOrder, Lambda, GPeriod)
@@ -363,6 +363,7 @@ def fftshift(inImage, shift):
     return np.real(np.fft.ifft2(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1])))) 
 
 def doCCDMapOld(SEDMap, u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder, deltaOrder, fLength, stheta, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+
     
     dataOut=np.zeros(5)
 
@@ -578,6 +579,250 @@ def doCCDMapOld(SEDMap, u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder
 
 
     return CCDMap
+
+#backImage='sky_0deg_2.FIT'
+
+def CCDLoop(SEDMap, Beam, Optics, fLength, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+    
+    dataOut=np.zeros(5)
+    CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = np.array([])
+    
+    
+    #Loads SEDMap based on selection. 
+#    SEDMap = wt.doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
+    blaze_angle= stheta #Approximately np.arctan(2)
+    allFlux=np.array([0])
+    allLambdas=np.array([0])
+    
+    '''Main loop
+    Navigates orders within the range given
+    For each order navigates the list of wavelenghts in SEDMap constrained by +/- FSP/2'''    
+    for nOrder in range(minOrder, maxOrder, deltaOrder):
+
+        #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
+#        LambdaBlMin = 2*GPeriod*np.sin(blaze_angle)/(nOrder+1) #Was 0.5
+#        LambdaBlMax = 2*GPeriod*np.sin(blaze_angle)/(nOrder-1) #Was 0.5
+#        todo filter by blaz angle +/- 1 order
+
+
+
+#        #SEDMapLoop is an array of wavelengths (paired with intensity) called SEDMap that are in this particular order.
+#        SEDMapLoop=SEDMap.copy()
+#        #constrain by +/- FSP (was FSP/2)
+#        SEDMapLoop = SEDMapLoop[SEDMapLoop[:,0]>=LambdaBlMin]
+#        if SEDMapLoop.shape[0]>0:       
+#            SEDMapLoop = SEDMapLoop[SEDMapLoop[:,0]<=LambdaBlMax]     
+
+        #loop lambda for current order
+#        for Lambda,inI in SEDMap[SEDMap[:,0]>=LambdaBlMin][SEDMap[:,0]<=LambdaBlMax]: todo once lambdaBlmax and min are ready, filter SEDMap
+        for i in np.arange(len(SEDMap[SEDMapLambda])): 
+            
+            Lambda=SEDMap[SEDMapLambda][i]
+            inI=SEDMap[SEDMapIntensity][i]
+            
+            #refractive indeces of prism and air
+            nAir = n(Lambda,'air')
+            nPrism = n(Lambda,'nkzfs8')
+
+            
+            #Computes the unit vector that results from the optical system for a given wavelength and order
+            #This is the actual tracing of the ray for each wavelength
+#            v, isValid = wt.rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l)
+            v, isValid = rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle)
+            
+            if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
+                x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
+                z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
+    
+                '''Appends data table
+                x,z=pojected coordinates
+                inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
+                minLambda=min(SEDMap[SEDMapLambda])
+                maxLambda=max(SEDMap[SEDMapLambda])
+                outI=Intensity(Lambda, minLambda, maxLambda)    
+         
+                dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
+                
+                
+                if len(CCDX)==0:
+                    CCDX = np.array([x])
+                    CCDY = np.array([z])
+                    CCDLambda = np.array([Lambda])
+                    CCDIntensity = np.array([inI*outI])
+                    CCDOrder = np.array([nOrder])
+                else:
+                    CCDX = np.append(CCDX,[x],0)
+                    CCDY = np.append(CCDY,[z],0)
+                    CCDLambda = np.append(CCDLambda,[Lambda],0)
+                    CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
+                    CCDOrder = np.append(CCDOrder,[nOrder],0)
+        
+#        #Order extraction
+#        if (Interpolate==True and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
+#            xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
+#            yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
+#            LambdaPlot=dataOut[dataOut[:,4]==nOrder][:,2]
+#            
+#            fLambda = interpolate.interp1d(yPlot, LambdaPlot)
+#            fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+#          
+#            
+#            hdulist = pyfits.open(BackImage)
+#            imWidth = hdulist[0].header['NAXIS1']
+#            imHeight = hdulist[0].header['NAXIS2']
+#            
+#            newY=np.arange(-imHeight/2,imHeight/2)
+#            
+#            newX=fX(newY)
+#            
+#            nanMap= np.isnan(newX)
+#            newX=newX[-nanMap]
+#            newY=newY[-nanMap]
+#                    
+#            flux,flux2,flux3 = wt.extractOrder(newX,newY,BackImage)
+#            
+#            #read flats
+#            image ='simple_flat.fits'
+#            fluxFlat,flux2,flux3 = wt.extractOrder(newX,newY,image)
+#            
+#            
+#            Lambdas=fLambda(newY)
+#            
+#            #Blackbody curve to balance flats
+#            BB=Lambdas**(-4) / (np.exp(14400/Lambdas/3000)- 1)
+#         
+#         
+#            cleanFlux= flux/fluxFlat*BB#/nOrder**2#/np.max(fluxFlat))
+#
+#            #Write flux to files
+##            f = open('Order_'+ str(nOrder) +'.txt', 'w')
+##            for k in range(0,len(Lambdas)):
+##                outText=str(Lambdas[k])+'\t'+ str(cleanFlux[k])+'\n'
+##                f.write(outText)
+##            f.close()
+##            
+##            peakIndex=np.where(normalizedFlux==np.max(normalizedFlux))[0][0]
+##            peakIndex=len(normalizedFlux)/2
+##            Range=(len(normalizedFlux)- peakIndex)*0.6
+#            
+#
+#            # Fit a Gaussian             
+#            if GaussFit==True: 
+##                # Create some sample data
+##                known_param = np.array([2.0, .7])
+##                xmin,xmax = -1.0, 5.0
+##                N = 1000
+##                X = np.linspace(xmin,xmax,N)
+##                Y = gauss(X, known_param)
+##                
+##                # Add some noise
+##                Y += .10*np.random.random(N)
+##                
+##                # Renormalize to a proper PDF
+##                Y /= ((xmax-xmin)/len(Y))*Y.sum()  
+#                
+#                
+#                         
+#                X=Lambdas.copy()
+#                Y=cleanFlux.copy()
+#                if len(Y)>0:
+#                    #Y /= ((np.max(X) - np.min(X))/len(Y))*Y.sum()  
+#                    
+#                    a,FWHMIndex = wt.find_nearest(Y,np.max(Y)/2)
+#                    maxIndex=np.where(Y==np.max(Y))[0][0]
+#                    FWHM=2*(X[maxIndex]-X[FWHMIndex])
+#                    fit_mu=X[maxIndex]
+#                    #print 'FWHM',FWHM
+##                cleanX=X[np.arange(0,len(X),1)].copy()
+##                cleanY=Y[np.arange(0,len(Y),1)].copy()
+#
+##                    p0 = [0,1] # Inital guess is a normal distribution
+##                    errfunc = lambda p, x, y: gauss(x, p) - y # Distance to the target function
+##                    p1, success = leastsq(errfunc, p0[:], args=(X,Y))
+##                    
+##                    fit_mu, fit_stdev = p1
+##                    
+##                    p1[1]=5*fit_stdev
+##                    
+##                    FWHM = 4*np.sqrt(2*np.log(2))*fit_stdev
+##                    print 'FWHM2',FWHM
+#                    
+#                    R=fit_mu/FWHM
+#                    print fit_mu ,'            ', R
+#                    
+#                    plt.plot(X,Y) 
+#    #                plt.plot(cleanX,cleanY) 
+#                    plt.ylabel('Intensity (Relative Units)')
+#                    plt.xlabel('Wavelength (Micrometers)')
+#                    plt.title('Spectral Resolution at '+ str("{:0.4f}".format(fit_mu))+' micrometers')
+#                    plt.annotate('FWHM='+str("{:0.4f}".format(FWHM*1000))+'nm R=' + str("{:0.4f}".format(fit_mu/FWHM)), 
+#                        xy = (X[0],Y[0]), xytext = (220, 250),
+#                        textcoords = 'offset points', ha = 'right', va = 'bottom',
+#                        bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9), size=15)
+#                    #plt.plot(X, gauss(X,p1),lw=3,alpha=.5, color='r')
+#                    plt.axvspan(fit_mu-FWHM/2, fit_mu+FWHM/2, facecolor='g', alpha=0.5)
+#                    plt.show()
+##            
+##            print nOrder
+##            print str("{:0.4f}".format(p1[0]/FWHM))
+##            print str("{:0.4f}".format(p1[0]))
+#            
+#            if np.sum(allFlux)>0:
+#                intersectStart=bis.bisect(allLambdas,np.min(Lambdas))   
+#                intersectEnd=len(allLambdas)   
+#                bestDistance=1e10     
+#                bestIndex=0
+#                
+#                for k in range(0,intersectEnd-intersectStart):
+#                    currDistance=np.sqrt((allFlux[intersectStart+k]-cleanFlux[k])**2)
+#                    if currDistance<bestDistance:
+#                        bestDistance=currDistance
+#                        bestIndex=k
+#                        
+#                allLambdas=allLambdas[allLambdas<Lambdas[bestIndex]]
+#                allFlux=allFlux[allLambdas<Lambdas[bestIndex]]
+#                
+#
+#                
+#                allLambdas=np.hstack((allLambdas,Lambdas[bestIndex:]))
+#                allFlux=np.hstack((allFlux,cleanFlux[bestIndex:]))
+#            else:
+#                allLambdas=Lambdas
+#                allFlux=cleanFlux
+             
+#            if Interpolate==True:   
+#                
+#                fig = plt.figure()
+#                plt.ylabel('Intensity (Counts)')
+#                plt.xlabel('Wavelength (Micrometers)')
+#                plt.title('Order '+ str(nOrder))
+#                ax1 = fig.add_subplot(111)          
+#                ax1.plot(Lambdas,cleanFlux)
+##                ax1.plot(Lambdas,fluxFlat)
+#                ax1.plot(Lambdas,flux3)
+#                #plt.savefig(str(nOrder)+'.png')
+#                plt.show()
+#    
+
+#    if Interpolate==True:   
+##        a=np.sort(allFlux,0)
+##        params = {'legend.fontsize': 200,
+##          'legend.linewidth': 2}
+##        plt.rcParams.update(params)
+#        fig = plt.figure()
+#        ax1 = fig.add_subplot(111)
+#        ax1.plot(allLambdas,allFlux)
+##        ax1.scatter(allLambdas,allFlux ,s=0.1, color='black' , marker='o', alpha =1)
+#        plt.title('Sodfium Doublet')
+#        plt.ylabel('Intensity (Relative Units)')
+#        plt.xlabel('Wavelength (Micrometers)')
+#        plt.show() 
+       
+#    CCDMap=dataOut[1:,]
+
+
+
+    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
 #backImage='sky_0deg_2.FIT'
 

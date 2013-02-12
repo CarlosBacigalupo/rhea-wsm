@@ -1,3 +1,13 @@
+#Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
+minOrder=80
+maxOrder=100
+deltaOrder=1
+maxOrder+=deltaOrder
+pixelSize= 5.4 
+
+
+
+
 #Options
 SEDModeFlat=0
 SEDModeRandom=1
