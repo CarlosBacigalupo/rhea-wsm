@@ -40,7 +40,7 @@ Wavelength'''
 
 def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=0.0001, intNormalize=0): #todo change format to SEDMap to be equal SEDFlat
     '''
-    Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
+    Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
     Parameters
     ----------
@@ -124,15 +124,20 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=
        
     return SEDMap
 
-def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823], SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):  
+def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
+    #Old parameters---->>>>> SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):  
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
     Parameters
     ----------
-    p : np np.array
+    SEDMap : np.array
+        n x 2 np.array with wavelength, Energy
+    
+    p : np np.array (optional)
         (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
          blaze period (microns), focal length(mm), distortion term) <-- optical arrangement
+         
     args : np np.array
         (SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile, Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints) <-- other options
    
@@ -198,7 +203,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     #Launch grid loop. Creates an array of (x,y,lambda, Inensity, Order)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
-    #Distort
+    #Distort if any distort data present
     if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
