@@ -8,7 +8,6 @@ import matplotlib.cm as cm
 import wsmtools as wt
 from constants import *
 import defaults
-import parser
 
 #least square package
 from scipy.optimize.minpack import leastsq
@@ -23,7 +22,7 @@ import bisect as bis
 
 import matplotlib.image as mpimg
 
-
+import xml_parser
 
 
 '''
@@ -123,7 +122,7 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=
             SEDMap = np.array((SEDMap[SEDMapLambda], (SEDMap[SEDMapIntensity]-min(SEDMap[SEDMapIntensity]))/(fluxRange+1) ))
        
     return SEDMap
-
+    
 def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
     #Old parameters---->>>>> SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):  
     '''
@@ -157,57 +156,61 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
 #    global n1, n2, n4, n5, s, l, d, flux
 #    global allFlux
 
-    #Initial beam
-    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
-    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
-    Beam=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
-       
-    #Focal length
-    fLength = p[10]
     
-    #Prism surface 1
-    n1phi = np.radians(p[2])   
-    n1theta = np.radians(p[3]) 
-    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
-    #Prism surface 2
-    n2phi = np.radians(p[4])   
-    n2theta = np.radians(p[5]) 
-    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
-    Optics = np.append([[n1,[0,0,0],OpticsPrism,'nkzfs8',0]], [[n2,[0,0,0],OpticsPrism,'air',0]], 0)
-    
-    #Grating
-    d = p[9]  #blaze period in microns  
-    sphi = np.radians(p[6])   
-    stheta = np.radians(p[7]) 
-    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves   
-    #Now find two vectors (a and b) perpendicular to s:
-    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
-    b = np.cross(a,s)
-    #Create l from given alpha using a and b as basis
-    alpha = np.radians(p[8]) 
-    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
-    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
-    
-    
-    #Prism surface 3 (surf #2 on return)
-    n4=-n2
-    Optics = np.append(Optics,[[n4,[0,0,0],OpticsPrism,'nkzfs8',0]], 0)
-    
-    #Prism surface 4 (surf #1 on return)
-    n5=-n1     
-    Optics = np.append(Optics, [[n5,[0,0,0],OpticsPrism,'air',0]], 0)
+#    #Prism surface 1
+#    n1phi = np.radians(p[2])   
+#    n1theta = np.radians(p[3]) 
+#    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
+#    #Prism surface 2
+#    n2phi = np.radians(p[4])   
+#    n2theta = np.radians(p[5]) 
+#    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
+#    Optics = np.append([[n1,[0,0,0],OpticsBoundary,'nkzfs8',0]], [[n2,[0,0,0],OpticsBoundary,'air',0]], 0)
+#    
+#    #Grating
+#    d = p[9]  #blaze period in microns  
+#    sphi = np.radians(p[6])   
+#    stheta = np.radians(p[7]) 
+#    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves   
+#    #Now find two vectors (a and b) perpendicular to s
+#    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
+#    b = np.cross(a,s)
+#    #Create l from given alpha using a and b as basis
+#    alpha = np.radians(p[8]) 
+#    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
+#    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
+#    
+#    
+#    #Prism surface 3 (surf #2 on return)
+#    n4=-n2
+#    Optics = np.append(Optics,[[n4,[0,0,0],OpticsBoundary,'nkzfs8',0]], 0)
+#    
+#    #Prism surface 4 (surf #1 on return)
+#    n5=-n1     
+#    Optics = np.append(Optics, [[n5,[0,0,0],OpticsBoundary,'air',0]], 0)
 
     #Distortion np.array
     K = [] #p[11]
        
-    #Launch grid loop. Creates an array of (x,y,lambda, Inensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+       
+    Optics, Beams, fLength, p, stheta = xml_parser.read_all()
+    
+    #Initial beam
+#    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
+#    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
+#    Beam=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
+#       
+#    #Focal length
+#    fLength = p[10]
+    
+    #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beams , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort if any distort data present
     if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
-    
+
 def doPlot(CCDMap,CalibPoints=False,Labels=False,BackImage='c_noFlat_sky_0deg_460_median.fits'):
         CCDX = CCDMap[CCDMapX] 
         CCDY = CCDMap[CCDMapY] 

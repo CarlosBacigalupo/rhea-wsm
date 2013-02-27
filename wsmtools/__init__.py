@@ -146,7 +146,7 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
         optType=Optics[i][OpticsType]
         n_r=n(Lambda,Optics[i][OpticsN])
         
-        if optType==OpticsPrism:
+        if optType==OpticsBoundary:
             surfNormal=Optics[i][OpticsCoords1]           
             Beam = Snell3D(n_i, n_r, Beam, surfNormal)
         elif optType==OpticsRGrating:
@@ -582,8 +582,35 @@ def doCCDMapOld(SEDMap, u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder
 
 #backImage='sky_0deg_2.FIT'
 
-def CCDLoop(SEDMap, Beam, Optics, fLength, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+    ''' todo
+    Computes the projection of n beams of monochromatic light passing through an optical system. 
+
+    Parameters
+    ----------
+    SEDMap : np.array
+        n x 2 np.array with wavelength, Energy
     
+    p : np np.array (optional)
+        (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+         blaze period (microns), focal length(mm), distortion term) <-- optical arrangement
+         
+    args : np np.array
+        (SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile, Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints) <-- other options
+   
+    Returns
+    -------
+    x : np np.array
+        x coordinate of the target point 
+    y : np np.array
+        x coordinate of the target point 
+    lambda : np np.array
+        wavelength at x,y
+
+    Notes
+    -----  
+    '''   
+       
     dataOut=np.zeros(5)
     CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = np.array([])
     
@@ -591,8 +618,12 @@ def CCDLoop(SEDMap, Beam, Optics, fLength, stheta): #, intNormalize,Interpolate=
     #Loads SEDMap based on selection. 
 #    SEDMap = wt.doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
     blaze_angle= stheta #Approximately np.arctan(2)
-    allFlux=np.array([0])
-    allLambdas=np.array([0])
+    minLambda=min(SEDMap[SEDMapLambda])
+    maxLambda=max(SEDMap[SEDMapLambda])
+#    allFlux=np.array([0])
+#    allLambdas=np.array([0])
+    
+
     
     '''Main loop
     Navigates orders within the range given
@@ -637,12 +668,11 @@ def CCDLoop(SEDMap, Beam, Optics, fLength, stheta): #, intNormalize,Interpolate=
                 '''Appends data table
                 x,z=pojected coordinates
                 inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
-                minLambda=min(SEDMap[SEDMapLambda])
-                maxLambda=max(SEDMap[SEDMapLambda])
+
                 outI=Intensity(Lambda, minLambda, maxLambda)    
          
-                dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
-                
+#                dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
+
                 
                 if len(CCDX)==0:
                     CCDX = np.array([x])
@@ -824,7 +854,7 @@ def CCDLoop(SEDMap, Beam, Optics, fLength, stheta): #, intNormalize,Interpolate=
 
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-#backImage='sky_0deg_2.FIT'
+
 
 def gauss(x, p): 
     #Returs a gaussian probability distribution function based on a mean and standard deviation for a range x
@@ -1199,3 +1229,87 @@ def main(p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89
         doPlot(CCDMap,CalibPoints=booPlotCalibPoints,Labels=booPlotLabels,BackImage=plotBackImage)
     
     return CCDMapX, CCDMapY, CCDMapLambda
+
+def doCCDMapOld(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
+    #Old parameters---->>>>> SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):  
+    '''
+    Computes the projection of n beams of monochromatic light passing through an optical system. 
+
+    Parameters
+    ----------
+    SEDMap : np.array
+        n x 2 np.array with wavelength, Energy
+    
+    p : np np.array (optional)
+        (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
+         blaze period (microns), focal length(mm), distortion term) <-- optical arrangement
+         
+    args : np np.array
+        (SEDMode(0=Max, 1=Random, 2=Sun, 3=from specFile, 4=from CalibFile), Plot?, specFile, Normalize intensity? (0=no, #=range), Distort?, Interpolate, PlotCalibPoints) <-- other options
+   
+    Returns
+    -------
+    x : np np.array
+        x coordinate of the target point 
+    y : np np.array
+        x coordinate of the target point 
+    lambda : np np.array
+        wavelength at x,y
+
+    Notes
+    -----  
+    '''   
+    
+#    global n1, n2, n4, n5, s, l, d, flux
+#    global allFlux
+
+    #Initial beam
+    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
+    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
+    Beam=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
+       
+    #Focal length
+    fLength = p[10]
+    
+    #Prism surface 1
+    n1phi = np.radians(p[2])   
+    n1theta = np.radians(p[3]) 
+    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
+    #Prism surface 2
+    n2phi = np.radians(p[4])   
+    n2theta = np.radians(p[5]) 
+    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
+    Optics = np.append([[n1,[0,0,0],OpticsBoundary,'nkzfs8',0]], [[n2,[0,0,0],OpticsBoundary,'air',0]], 0)
+    
+    #Grating
+    d = p[9]  #blaze period in microns  
+    sphi = np.radians(p[6])   
+    stheta = np.radians(p[7]) 
+    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves   
+    #Now find two vectors (a and b) perpendicular to s:
+    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
+    b = np.cross(a,s)
+    #Create l from given alpha using a and b as basis
+    alpha = np.radians(p[8]) 
+    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
+    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
+    
+    
+    #Prism surface 3 (surf #2 on return)
+    n4=-n2
+    Optics = np.append(Optics,[[n4,[0,0,0],OpticsBoundary,'nkzfs8',0]], 0)
+    
+    #Prism surface 4 (surf #1 on return)
+    n5=-n1     
+    Optics = np.append(Optics, [[n5,[0,0,0],OpticsBoundary,'air',0]], 0)
+
+    #Distortion np.array
+    K = [] #p[11]
+       
+    #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beam , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+     
+    #Distort if any distort data present
+    if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
+        
+    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder

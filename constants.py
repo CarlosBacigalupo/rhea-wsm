@@ -26,7 +26,7 @@ SEDMapLambda=0
 SEDMapIntensity=1
 
 #Optics types
-OpticsPrism=0
+OpticsBoundary=0
 OpticsRGrating=1
 
 OpticsCoords1=0

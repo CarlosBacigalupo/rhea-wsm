@@ -7,11 +7,11 @@ print b
 wsm.doPlot(b)
 
 
-print "3"
+#print "3"
 #import xml_parser
 #
 #
-#p=xml_parser.read_Optics()
+#p=xml_parser.read_All()
 #
 #print p
 
