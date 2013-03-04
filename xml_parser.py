@@ -29,7 +29,7 @@ def read_p(specFileName='defaul_spec.xml'):
     return p
 
 
-def read_all(specFileName='defaul_spec.xml'):
+def read_all(specFileName='default_spec.xml'):
     
     p=np.zeros(11)
     Optics=np.array([])

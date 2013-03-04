@@ -1,10 +1,43 @@
-import wsm
+#import wsm
+#
+#a=wsm.doSEDMap()
+# 
+#b=wsm.doCCDMap(a)
+#print b
+#wsm.doPlot(b)
 
-a=wsm.doSEDMap()
+from scipy import stats
+import numpy as np
+import ds9
  
-b=wsm.doCCDMap(a)
-print b
-wsm.doPlot(b)
+# Make a 2D gaussian image that is stored in a 2D numpy array
+x = np.arange(-3, 3, 0.1)
+xx, yy = np.meshgrid(x, x)
+gauss2d = stats.norm.pdf(xx) * stats.norm.pdf(yy)
+ 
+# Now open ds9 (this assumes no ds9 instance is yet running)
+d = ds9.ds9()
+ 
+# Load up our 2D gaussian
+d.set_np2arr(gauss2d)
+# ~/Documents/workspace/rhea-wsm/fits
+# Zoom to fit
+d.set('zoom to fit')
+ 
+# Change the colormap and scaling
+d.set('cmap bb')
+d.set('scale log')
+ 
+# Add a label
+d.set('regions command {text 30 20 #text="Fun with pyds9" font="times 18 bold"}')
+ 
+# Now you can play in ds9 to your heart's content.
+# Check back to see what the current color scale is.
+print d.get('scale')
+ 
+# Finally, save your completed image (including regions or labels)
+d.set('saveimage png my_pyds9_img.png')
+
 
 
 #print "3"
