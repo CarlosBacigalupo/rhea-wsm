@@ -21,6 +21,36 @@ import os, pyfits, random
 import pylab as pl
 from astLib import astSED
 from constants import *
+from matplotlib import *
+import image_calibration as ic
+
+
+def identify_image_map_lambda(image_map_x, image_map_y, back_image):
+    
+    plot(image_map_x,image_map_y)
+
+def load_image_map(image_filename='test.fits', image_map_filename='image_map.txt'):
+    
+
+    
+    image_map_x=[]
+
+    try: image_map_file = open(image_map_filename)
+    except Exception: return 'ERROR' # <-- change this to returning a number
+    image_map_file_temp = image_map_file.readlines()
+
+    for lines in image_map_file_temp:
+        if lines[0][0] != '#': 
+            linetemp = str.split(lines)
+
+            if len(image_map_x)==0:
+                image_map_x = np.array([float(linetemp[0])])
+                image_map_y = np.array([float(linetemp[1])])
+            else:
+                image_map_x = np.append(image_map_x,[float(linetemp[0])],0)
+                image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
+                
+    return image_map_x, image_map_y
 
 def nkzfs8(Lambda):
     #### absorved by n()
@@ -853,8 +883,6 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
 
 
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
-
-
 
 def gauss(x, p): 
     #Returs a gaussian probability distribution function based on a mean and standard deviation for a range x

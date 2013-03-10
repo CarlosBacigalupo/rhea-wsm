@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 import wsmtools as wt
 from constants import *
 import defaults
+import image_calibration as ic
 
 #least square package
 from scipy.optimize.minpack import leastsq
@@ -170,6 +171,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
 def doPlot(CCDMap,CalibPoints=False,Labels=False,BackImage='c_noFlat_sky_0deg_460_median.fits'):
+        
         CCDX = CCDMap[CCDMapX] 
         CCDY = CCDMap[CCDMapY] 
         CCDLambda = CCDMap[CCDMapLambda] 
@@ -266,4 +268,32 @@ def doFindFit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.489973
 
     return fit
 
+def do_read_calib(image_filename='test.fits', analyze=True):
+    
+    if analyze: ic.analyze_image(image_filename)
+    
+    image_map_x, image_map_y = wt.load_image_map()
+    
+       
+    hdulist = pyfits.open(image_filename)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+
+    im = pyfits.getdata(image_filename)
+
+        
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    plt.set_cmap(cm.Greys_r)
+    ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
+    
+    plt.title(len(image_map_x))
+    
+    plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    
+    plt.show()
+    
+    return
 

@@ -1,3 +1,56 @@
+from pyraf import iraf
+import os
+import numpy as np
+
+def analyze_image(image_filename='test.fits', image_map_filename='image_map.txt'):
+    iraf.noao(_doprint=0)     # load noao
+    iraf.digiphot(_doprint=0) # load digiphot
+    iraf.apphot(_doprint=0)   # load apphot
+    
+    
+    
+    #iraf.daofind.setParam('image',FitsFileName)        #Set ImageName
+    iraf.daofind.setParam('verify','no')            #Don't verify
+    iraf.daofind.setParam('interactive','no')        #Interactive
+    iraf.daofind.setParam('threshold','10000')        #Min Good Value
+    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive
+    
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+    
+    check_if_file_exists(image_map_filename)
+    try: iraf.daofind(image = image_filename, output = image_map_filename)
+    except Exception: return 0
+#    brightest_star_info = find_brightest_star(outfile)
+    return
+
+def find_brightest_star(readinfile):
+    try: starfile = open(readinfile)
+    except Exception: return 'ERROR' # <-- change this to returning a number
+    startemp = starfile.readlines()
+    brighteststar = 50
+    xpixel = 0
+    ypixel = 0
+    for lines in startemp:
+        if lines[0][0] != '#': #don't want the comments
+            linetemp = str.split(lines)
+            #print linetemp
+            if 1: #float(linetemp[2]) < brighteststar:
+                starmag = 1 #float(linetemp[2])
+                xpixel = float(linetemp[0])
+                ypixel = float(linetemp[1])
+                starsharp = float(linetemp[3])
+    return [starmag, xpixel, ypixel, starsharp]
+
+def check_if_file_exists(filename):
+    #i = 0 # counter to stop this going on forever
+    if os.path.isfile(filename): os.remove(filename)
+    return filename
+
+
 def medianCombine(inFiles, outFilename):
     
     for k in range(0,len(inFiles)):
@@ -90,4 +143,6 @@ def subtractDark(inFileName, darkFileName, outFilename):
     outFile = inFile - darkFile
     
     pyfits.writeto(outFilename, outFile)
+    
+    
                               
