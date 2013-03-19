@@ -38,7 +38,7 @@ Wavelength'''
 
 
 
-def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1.000, deltaLambda=0.0001, intNormalize=0): #todo change format to SEDMap to be equal SEDFlat
+def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0): #todo change format to SEDMap to be equal SEDFlat
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -170,7 +170,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def doPlot(CCDMap,CalibPoints=False,Labels=False,BackImage='c_noFlat_sky_0deg_460_median.fits'):
+def doPlot(CCDMap, CalibPoints=False, Labels=False, BackImage='c_noFlat_sky_0deg_460_median.fits'):
         
         CCDX = CCDMap[CCDMapX] 
         CCDY = CCDMap[CCDMapY] 
@@ -268,13 +268,52 @@ def doFindFit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.489973
 
     return fit
 
-def do_read_calib(image_filename='test.fits', analyze=True):
-    
+def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
+    '''
+    Extracts peaks with daofind
+    Imports found points
+    Plots found points on image
+       
+    Parameters
+    ----------
+    image_filename : string
+        Name of the calibration image 
+
+    analyze : boolean
+        Run the pyraf analysis (reads the last output otherwise)
+
+    Returns
+    -------
+    nottin
+      
+    Notes
+    -----
+    '''      
     if analyze: ic.analyze_image(image_filename)
     
     image_map_x, image_map_y = wt.load_image_map()
     
-       
+    image_map_lambda = np.zeros(len(image_map_x))
+    
+    SEDMap = doSEDMap()
+    
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = doCCDMap(SEDMap)
+    
+    
+    for i in range(len(image_map_x)):
+    
+        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        closest_point=np.min(distance_array)
+        closest_point_index=np.where(distance_array==closest_point)[0][0]
+        
+        image_map_lambda[i] = CCDLambda[closest_point_index]
+    
+    f = open(output_filename,'w')
+    for i in range(len(image_map_x)):
+        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda[i])+' 1 1\n'
+        f.write(out_string) 
+    f.close()
+    
     hdulist = pyfits.open(image_filename)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
@@ -289,7 +328,7 @@ def do_read_calib(image_filename='test.fits', analyze=True):
     plt.set_cmap(cm.Greys_r)
     ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
     
-    plt.title(len(image_map_x))
+    plt.title(str(len(image_map_x))+' point(s) found')
     
     plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
     

@@ -1,6 +1,6 @@
-
 import wsm
-wsm.do_read_calib(analyze=True)
+wsm.do_read_calib(analyze=False, output_filename='calib_out.txt')
+
 
 #import image_calibration as ic
 

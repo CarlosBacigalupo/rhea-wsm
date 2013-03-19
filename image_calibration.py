@@ -12,14 +12,10 @@ def analyze_image(image_filename='test.fits', image_map_filename='image_map.txt'
     #iraf.daofind.setParam('image',FitsFileName)        #Set ImageName
     iraf.daofind.setParam('verify','no')            #Don't verify
     iraf.daofind.setParam('interactive','no')        #Interactive
-    iraf.daofind.setParam('threshold','10000')        #Min Good Value
-    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive
-    
+    iraf.daofind.setParam('datamin','10000')        #Min Good Value
+    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive   
 #    iraf.daofind.setParam('interactive','no')        #Interactive
-#    iraf.daofind.setParam('interactive','no')        #Interactive
-#    iraf.daofind.setParam('interactive','no')        #Interactive
-#    iraf.daofind.setParam('interactive','no')        #Interactive
-#    iraf.daofind.setParam('interactive','no')        #Interactive
+
     
     check_if_file_exists(image_map_filename)
     try: iraf.daofind(image = image_filename, output = image_map_filename)

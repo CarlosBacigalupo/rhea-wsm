@@ -271,8 +271,8 @@ def extractOrder(x,y,image):
     
     im = pyfits.getdata(image)  
 
-    x=x+imWidth/2
-    y=y+imHeight/2
+    x += imWidth/2
+    y += imHeight/2
 
     
     for k in range(0,len(y)):
@@ -612,6 +612,28 @@ def doCCDMapOld(SEDMap, u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder
 
 #backImage='sky_0deg_2.FIT'
 
+def create_inter_func(CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, nOrder):
+    
+    xPlot = CCDX[CCDOrder==nOrder]
+    yPlot = CCDY[CCDOrder==nOrder]
+    LambdaPlot = CCDLambda[CCDOrder==nOrder]
+    
+    fLambda = interpolate.interp1d(yPlot, LambdaPlot)
+    fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+
+    return fX, fLambda
+
+def calculate_from_Y(Y, fX, fLambda):
+    
+    newY=np.arange(np.min(Y),np.max(Y))           
+    newX=fX(newY)            
+    nanMap= np.isnan(newX)
+    newX=newX[-nanMap]
+    newY=newY[-nanMap]            
+    Lambdas=fLambda(newY)
+    
+    return newX, newY, Lambdas
+            
 def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     ''' todo
     Computes the projection of n beams of monochromatic light passing through an optical system. 
@@ -647,7 +669,7 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
     
     #Loads SEDMap based on selection. 
 #    SEDMap = wt.doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
-    blaze_angle= stheta #Approximately np.arctan(2)
+    blaze_angle = stheta #Approximately np.arctan(2)
     minLambda=min(SEDMap[SEDMapLambda])
     maxLambda=max(SEDMap[SEDMapLambda])
 #    allFlux=np.array([0])
@@ -664,8 +686,6 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
 #        LambdaBlMin = 2*GPeriod*np.sin(blaze_angle)/(nOrder+1) #Was 0.5
 #        LambdaBlMax = 2*GPeriod*np.sin(blaze_angle)/(nOrder-1) #Was 0.5
 #        todo filter by blaz angle +/- 1 order
-
-
 
 #        #SEDMapLoop is an array of wavelengths (paired with intensity) called SEDMap that are in this particular order.
 #        SEDMapLoop=SEDMap.copy()
@@ -695,15 +715,8 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
                 x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
                 z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
     
-                '''Appends data table
-                x,z=pojected coordinates
-                inI, outI = intensities, inI=from source (file, random,...) 0.0 to 1.0'''
-
                 outI=Intensity(Lambda, minLambda, maxLambda)    
          
-#                dataOut= np.vstack((dataOut,np.array([x,z, Lambda, inI*outI ,nOrder]))) 
-
-                
                 if len(CCDX)==0:
                     CCDX = np.array([x])
                     CCDY = np.array([z])
@@ -717,171 +730,6 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
                     CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
                     CCDOrder = np.append(CCDOrder,[nOrder],0)
         
-#        #Order extraction
-#        if (Interpolate==True and len(dataOut[dataOut[:,4]==nOrder][:,0])>=3):
-#            xPlot=dataOut[dataOut[:,4]==nOrder][:,0]
-#            yPlot=dataOut[dataOut[:,4]==nOrder][:,1]
-#            LambdaPlot=dataOut[dataOut[:,4]==nOrder][:,2]
-#            
-#            fLambda = interpolate.interp1d(yPlot, LambdaPlot)
-#            fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
-#          
-#            
-#            hdulist = pyfits.open(BackImage)
-#            imWidth = hdulist[0].header['NAXIS1']
-#            imHeight = hdulist[0].header['NAXIS2']
-#            
-#            newY=np.arange(-imHeight/2,imHeight/2)
-#            
-#            newX=fX(newY)
-#            
-#            nanMap= np.isnan(newX)
-#            newX=newX[-nanMap]
-#            newY=newY[-nanMap]
-#                    
-#            flux,flux2,flux3 = wt.extractOrder(newX,newY,BackImage)
-#            
-#            #read flats
-#            image ='simple_flat.fits'
-#            fluxFlat,flux2,flux3 = wt.extractOrder(newX,newY,image)
-#            
-#            
-#            Lambdas=fLambda(newY)
-#            
-#            #Blackbody curve to balance flats
-#            BB=Lambdas**(-4) / (np.exp(14400/Lambdas/3000)- 1)
-#         
-#         
-#            cleanFlux= flux/fluxFlat*BB#/nOrder**2#/np.max(fluxFlat))
-#
-#            #Write flux to files
-##            f = open('Order_'+ str(nOrder) +'.txt', 'w')
-##            for k in range(0,len(Lambdas)):
-##                outText=str(Lambdas[k])+'\t'+ str(cleanFlux[k])+'\n'
-##                f.write(outText)
-##            f.close()
-##            
-##            peakIndex=np.where(normalizedFlux==np.max(normalizedFlux))[0][0]
-##            peakIndex=len(normalizedFlux)/2
-##            Range=(len(normalizedFlux)- peakIndex)*0.6
-#            
-#
-#            # Fit a Gaussian             
-#            if GaussFit==True: 
-##                # Create some sample data
-##                known_param = np.array([2.0, .7])
-##                xmin,xmax = -1.0, 5.0
-##                N = 1000
-##                X = np.linspace(xmin,xmax,N)
-##                Y = gauss(X, known_param)
-##                
-##                # Add some noise
-##                Y += .10*np.random.random(N)
-##                
-##                # Renormalize to a proper PDF
-##                Y /= ((xmax-xmin)/len(Y))*Y.sum()  
-#                
-#                
-#                         
-#                X=Lambdas.copy()
-#                Y=cleanFlux.copy()
-#                if len(Y)>0:
-#                    #Y /= ((np.max(X) - np.min(X))/len(Y))*Y.sum()  
-#                    
-#                    a,FWHMIndex = wt.find_nearest(Y,np.max(Y)/2)
-#                    maxIndex=np.where(Y==np.max(Y))[0][0]
-#                    FWHM=2*(X[maxIndex]-X[FWHMIndex])
-#                    fit_mu=X[maxIndex]
-#                    #print 'FWHM',FWHM
-##                cleanX=X[np.arange(0,len(X),1)].copy()
-##                cleanY=Y[np.arange(0,len(Y),1)].copy()
-#
-##                    p0 = [0,1] # Inital guess is a normal distribution
-##                    errfunc = lambda p, x, y: gauss(x, p) - y # Distance to the target function
-##                    p1, success = leastsq(errfunc, p0[:], args=(X,Y))
-##                    
-##                    fit_mu, fit_stdev = p1
-##                    
-##                    p1[1]=5*fit_stdev
-##                    
-##                    FWHM = 4*np.sqrt(2*np.log(2))*fit_stdev
-##                    print 'FWHM2',FWHM
-#                    
-#                    R=fit_mu/FWHM
-#                    print fit_mu ,'            ', R
-#                    
-#                    plt.plot(X,Y) 
-#    #                plt.plot(cleanX,cleanY) 
-#                    plt.ylabel('Intensity (Relative Units)')
-#                    plt.xlabel('Wavelength (Micrometers)')
-#                    plt.title('Spectral Resolution at '+ str("{:0.4f}".format(fit_mu))+' micrometers')
-#                    plt.annotate('FWHM='+str("{:0.4f}".format(FWHM*1000))+'nm R=' + str("{:0.4f}".format(fit_mu/FWHM)), 
-#                        xy = (X[0],Y[0]), xytext = (220, 250),
-#                        textcoords = 'offset points', ha = 'right', va = 'bottom',
-#                        bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9), size=15)
-#                    #plt.plot(X, gauss(X,p1),lw=3,alpha=.5, color='r')
-#                    plt.axvspan(fit_mu-FWHM/2, fit_mu+FWHM/2, facecolor='g', alpha=0.5)
-#                    plt.show()
-##            
-##            print nOrder
-##            print str("{:0.4f}".format(p1[0]/FWHM))
-##            print str("{:0.4f}".format(p1[0]))
-#            
-#            if np.sum(allFlux)>0:
-#                intersectStart=bis.bisect(allLambdas,np.min(Lambdas))   
-#                intersectEnd=len(allLambdas)   
-#                bestDistance=1e10     
-#                bestIndex=0
-#                
-#                for k in range(0,intersectEnd-intersectStart):
-#                    currDistance=np.sqrt((allFlux[intersectStart+k]-cleanFlux[k])**2)
-#                    if currDistance<bestDistance:
-#                        bestDistance=currDistance
-#                        bestIndex=k
-#                        
-#                allLambdas=allLambdas[allLambdas<Lambdas[bestIndex]]
-#                allFlux=allFlux[allLambdas<Lambdas[bestIndex]]
-#                
-#
-#                
-#                allLambdas=np.hstack((allLambdas,Lambdas[bestIndex:]))
-#                allFlux=np.hstack((allFlux,cleanFlux[bestIndex:]))
-#            else:
-#                allLambdas=Lambdas
-#                allFlux=cleanFlux
-             
-#            if Interpolate==True:   
-#                
-#                fig = plt.figure()
-#                plt.ylabel('Intensity (Counts)')
-#                plt.xlabel('Wavelength (Micrometers)')
-#                plt.title('Order '+ str(nOrder))
-#                ax1 = fig.add_subplot(111)          
-#                ax1.plot(Lambdas,cleanFlux)
-##                ax1.plot(Lambdas,fluxFlat)
-#                ax1.plot(Lambdas,flux3)
-#                #plt.savefig(str(nOrder)+'.png')
-#                plt.show()
-#    
-
-#    if Interpolate==True:   
-##        a=np.sort(allFlux,0)
-##        params = {'legend.fontsize': 200,
-##          'legend.linewidth': 2}
-##        plt.rcParams.update(params)
-#        fig = plt.figure()
-#        ax1 = fig.add_subplot(111)
-#        ax1.plot(allLambdas,allFlux)
-##        ax1.scatter(allLambdas,allFlux ,s=0.1, color='black' , marker='o', alpha =1)
-#        plt.title('Sodfium Doublet')
-#        plt.ylabel('Intensity (Relative Units)')
-#        plt.xlabel('Wavelength (Micrometers)')
-#        plt.show() 
-       
-#    CCDMap=dataOut[1:,]
-
-
-
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
 def gauss(x, p): 
