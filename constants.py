@@ -5,9 +5,6 @@ deltaOrder=1
 maxOrder+=deltaOrder
 pixelSize= 5.4 
 
-
-
-
 #Options
 SEDModeFlat=0
 SEDModeRandom=1

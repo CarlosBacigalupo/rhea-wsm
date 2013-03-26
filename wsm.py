@@ -38,7 +38,7 @@ Wavelength'''
 
 
 
-def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0): #todo change format to SEDMap to be equal SEDFlat
+def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): #todo change format to SEDMap to be equal SEDFlat
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -89,29 +89,25 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.0
         tempB=sol.flux.transpose()            
         SEDMap = np.column_stack((tempA, tempB))    
         
-        """Remove rows outside the wavelength range"""
+        #Remove rows outside the wavelength range
         SEDMap = SEDMap[SEDMap[:,0]>=minLambda]     
         SEDMap = SEDMap[SEDMap[:,0]<=maxLambda]     
                                   
     elif SEDMode==SEDModeFile: #From file
-        SEDMap = np.array([0,0])
+        SEDMap = np.array([])
          
         for line in open(specFile):
             Lambda = float(str(line).split()[0]) #Wavelength
             I = float(str(line).split()[1])       #Intensity
             SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
 
-        SEDMap=SEDMap[1:,]  
-         
+
     elif SEDMode==SEDModeCalib: #From calibration file
-        SEDMap = np.array([0,0])
-         
-        for line in open(specFile):
-            Lambda = float(str(line).split()[2]) #Wavelength
-            I = 1      #Intensity
-            SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
-            
-        SEDMap=SEDMap[1:,]  
+        
+        a=np.loadtxt(specFile).transpose()
+        SEDMap=np.array((a[2],np.ones(len(a[2]))))
+        SEDMap.transpose()
+
                 
     """Normalize the intensity"""   
     if intNormalize!=0:    
@@ -293,24 +289,31 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     
     image_map_x, image_map_y = wt.load_image_map()
     
-    image_map_lambda = np.zeros(len(image_map_x))
+    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
     
-    SEDMap = doSEDMap()
+    SEDMap = doSEDMap(SEDMode=SEDModeCalib, specFile='Hg_5lines_double.txt')
     
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = doCCDMap(SEDMap)
-    
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = doCCDMap(SEDMap)  
     
     for i in range(len(image_map_x)):
     
         distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
         closest_point=np.min(distance_array)
-        closest_point_index=np.where(distance_array==closest_point)[0][0]
-        
+        closest_point_index=np.where(distance_array==closest_point)[0][0]       
         image_map_lambda[i] = CCDLambda[closest_point_index]
+        
+        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+        lambda_closest_point=np.min(lambda_distance)
+        lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
+        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+
+        
+    
+    
     
     f = open(output_filename,'w')
     for i in range(len(image_map_x)):
-        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda[i])+' 1 1\n'
+        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
         f.write(out_string) 
     f.close()
     
