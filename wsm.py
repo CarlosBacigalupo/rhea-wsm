@@ -1,44 +1,28 @@
-#Imports
-import matplotlib.pyplot as plt     #python/matlab
-import random                       #random generator package
-import pyfits
-import os
+#General Imports
+import random       #random generator package
+import pyfits       #fits package
+import os           #os access
+
+#Aliases
 import numpy as np
 import matplotlib.cm as cm
-import wsmtools as wt
+import bisect as bis
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt     #matlab
+from scipy.optimize.minpack import leastsq #least square package
+from scipy import interpolate #interpolate function
+from astLib import astSED #Astro Libraries           
+
+#Custom Packages
 from constants import *
-import defaults
+import xml_parser
+import wsmtools as wt
 import image_calibration as ic
 
-#least square package
-from scipy.optimize.minpack import leastsq
-
-#interpolate function
-from scipy import interpolate
-
-#Astro Libraries
-from astLib import astSED           
-
-import bisect as bis
-
-import matplotlib.image as mpimg
-
-import xml_parser
 
 
-'''
-Initial Parameters-------------------------------------------------------------- 
-Wavelength'''
-#minLambda=0.390 #min wavelength
-#maxLambda=0.795    #max wavelength
-#deltaLambda=0.001    #step interval
-#maxLambda+=deltaLambda
-
-
-
-
-
-def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): #todo change format to SEDMap to be equal SEDFlat
+def do_SED_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): 
+    #todo change format to SEDMap to be equal SEDFlat
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -68,12 +52,15 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.0
     Notes
     -----
     '''  
-    if SEDMode==SEDModeFlat: #Flat
+    if SEDMode==SED_MODE_FLAT: #Flat
         SEDMap = np.array((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
 
-    elif SEDMode==SEDModeRandom: #Random
-        SEDMap = np.array([0,0])
+    elif SEDMode==SED_MODE_RANDOM: #Random
         
+        np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))
+        
+        
+        SEDMap = np.array([0,0])
         for Lambda in range(minLambda, maxLambda + deltaLambda, deltaLambda):
 #            Intensity=int()
 #            newItem=np.np.array([Lambda,random.random(0.0,1.0)])
@@ -81,7 +68,7 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.0
             
         SEDMap = SEDMap[1:,]
                  
-    elif SEDMode==SEDModeSolar: #Solar
+    elif SEDMode==SED_MODE_SOLAR: #Solar
         
         sol = astSED.SOL        
         
@@ -93,7 +80,7 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.0
         SEDMap = SEDMap[SEDMap[:,0]>=minLambda]     
         SEDMap = SEDMap[SEDMap[:,0]<=maxLambda]     
                                   
-    elif SEDMode==SEDModeFile: #From file
+    elif SEDMode==SED_MODE_FILE: #From file
         SEDMap = np.array([])
          
         for line in open(specFile):
@@ -102,14 +89,14 @@ def doSEDMap(SEDMode=SEDModeFlat, minLambda=0.200, maxLambda=1., deltaLambda=0.0
             SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
 
 
-    elif SEDMode==SEDModeCalib: #From calibration file
+    elif SEDMode==SED_MODE_CALIB: #From calibration file
         
         a=np.loadtxt(specFile).transpose()
         SEDMap=np.array((a[2],np.ones(len(a[2]))))
         SEDMap.transpose()
 
                 
-    """Normalize the intensity"""   
+    #Normalize the intensity"""   
     if intNormalize!=0:    
         fluxRange=(max(SEDMap[SEDMapLambda])-min(SEDMap[SEDMapLambda]))
         
@@ -287,14 +274,19 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     '''      
     if analyze: ic.analyze_image(image_filename)
     
+    #Loads from the iraf output file
     image_map_x, image_map_y = wt.load_image_map()
     
     image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
     
-    SEDMap = doSEDMap(SEDMode=SEDModeCalib, specFile='Hg_5lines_double.txt')
+    #Create SEDMap from Mercury emission
+    SEDMap = do_SED_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     
+    #Create the model based on default parameters
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = doCCDMap(SEDMap)  
     
+    #Create list of 
+    #todo turn this into a 2D array calculation
     for i in range(len(image_map_x)):
     
         distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
@@ -306,35 +298,27 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
         lambda_closest_point=np.min(lambda_distance)
         lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
         image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
-
-        
     
-    
-    
+    #Create output file with calibration data
+    #todo, add sigmas    
     f = open(output_filename,'w')
     for i in range(len(image_map_x)):
         out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
         f.write(out_string) 
     f.close()
     
+    #Plot (probably remove)
     hdulist = pyfits.open(image_filename)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-
-    im = pyfits.getdata(image_filename)
-
-        
+    im = pyfits.getdata(image_filename)  
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
-
     plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
     plt.set_cmap(cm.Greys_r)
     ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
-    
     plt.title(str(len(image_map_x))+' point(s) found')
-    
     plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
-    
     plt.show()
     
     return

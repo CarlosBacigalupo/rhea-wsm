@@ -199,7 +199,7 @@ def distort( inX, inY, K=[0], Xc=0 , Yc=0):
     return outX, outY
 
 
-def doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
+def do_SED_map(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize):
     '''
     Loads the SED map
        

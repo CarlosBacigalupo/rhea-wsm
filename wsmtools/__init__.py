@@ -3,7 +3,7 @@ Python module with useful functions to be used by the Wavelength Scale Model cod
 
 Functions:
 
-doSEDMap       ===> Loads an SED Map of different kinds
+do_SED_map       ===> Loads an SED Map of different kinds
 nkzfs8         ===> Calculates refractive index of prism for a given wavelength
 n              ===> Calculates refractive index of air for a given wavelength
 Snell3D        ===> Computes new direction of vector as it goes across a surface
@@ -399,7 +399,7 @@ def doCCDMapOld(SEDMap, u, minLambda, maxLambda, deltaLambda, minOrder, maxOrder
 
     
     #Loads SEDMap based on selection. 
-#    SEDMap = wt.doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
+#    SEDMap = wt.do_SED_map(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
     blaze_angle= stheta #Approximately np.arctan(2)
     allFlux=np.array([0])
     allLambdas=np.array([0])
@@ -668,7 +668,7 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
     
     
     #Loads SEDMap based on selection. 
-#    SEDMap = wt.doSEDMap(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
+#    SEDMap = wt.do_SED_map(SEDMode, minLambda, maxLambda, deltaLambda, intNormalize)
     blaze_angle = stheta #Approximately np.arctan(2)
     minLambda=min(SEDMap[SEDMapLambda])
     maxLambda=max(SEDMap[SEDMapLambda])

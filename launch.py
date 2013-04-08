@@ -1,5 +1,5 @@
-import wsm
-wsm.do_read_calib(analyze=False, output_filename='calib_out.txt')
+#import wsm
+#wsm.do_read_calib(analyze=False, output_filename='calib_out.txt')
 
 
 #import image_calibration as ic
@@ -21,13 +21,13 @@ wsm.do_read_calib(analyze=False, output_filename='calib_out.txt')
 
 
 
-#import wsm
-#
-#a=wsm.doSEDMap()
-# 
-#b=wsm.doCCDMap(a)
-#print b
-#wsm.doPlot(b)
+import wsm
+
+a=wsm.do_SED_map(SEDMode=wsm.SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+ 
+b=wsm.doCCDMap(a)
+print b
+wsm.doPlot(b)
 
 
 

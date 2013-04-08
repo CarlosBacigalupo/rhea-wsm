@@ -5,12 +5,17 @@ deltaOrder=1
 maxOrder+=deltaOrder
 pixelSize= 5.4 
 
-#Options
-SEDModeFlat=0
-SEDModeRandom=1
-SEDModeSolar=2
-SEDModeFile=3
-SEDModeCalib=4
+
+
+
+
+#Constants start here------------------------------------------------#todo separate non constants
+#SED_modes
+SED_MODE_FLAT=0
+SED_MODE_RANDOM=1
+SED_MODE_SOLAR=2
+SED_MODE_FILE=3
+SED_MODE_CALIB=4
 
 CCDMapX=0
 CCDMapY=1
