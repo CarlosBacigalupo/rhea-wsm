@@ -52,6 +52,31 @@ def load_image_map(image_filename='test.fits', image_map_filename='image_map.txt
                 
     return image_map_x, image_map_y
 
+def load_image_map_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
+    
+
+    
+    image_map_x=[]
+
+    try: image_map_file = open(image_map_filename)
+    except Exception: return 'ERROR' # <-- change this to returning a number
+    image_map_file_temp = image_map_file.readlines()
+
+    for lines in image_map_file_temp:
+        if lines[0][0] != '#': 
+            linetemp = str.split(lines)
+
+            if len(image_map_x)==0:
+                image_map_x = np.array([float(linetemp[0])])
+                image_map_y = np.array([float(linetemp[1])])
+            else:
+                image_map_x = np.append(image_map_x,[float(linetemp[0])],0)
+                image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
+                
+    return image_map_x, image_map_y
+
+
+
 def nkzfs8(Lambda):
     #### absorved by n()
     '''Function that calculates the refractive index of the prism for a given wavelength'''
@@ -807,7 +832,7 @@ def doPlotOld(CCDMap,CalibPoints=False,Labels=False,BackImage=''):
         
         plt.show()
 
-def readCalibrationData(calibrationFile):
+def read_calibration_data(calibrationFile):
     '''
     Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
 
@@ -956,7 +981,7 @@ def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,
 
     return fit
 
-def main_errors(p, SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):
+def fit_errors(p, SEDMode=0, booPlot=False, calibDataFileName='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):
     #main will return these vectors in a random order. 
     #We assume that there are no rounding errors (probably a hack?)
     #and will use a floating point == to identify the (x,y) corresponding
@@ -966,16 +991,17 @@ def main_errors(p, SEDMode=0, booPlot=False, specFile='c_noFlat_Hg_0deg_10s.txt'
     #i.e. when going from SEDMap to SEDMapLoop the information on which line in
     #the input each wavelength came from was lost.
     #print p
-    x,y,waveList,xSig,ySig = readCalibrationData(specFile)
+    
+    x,y,waveList,xSig,ySig = read_calibration_data(calibDataFileName)
 
-    hdulist = pyfits.open('c_noFlat_sky_0deg_460_median.fits')
+    hdulist = pyfits.open('test.fits')
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
     x=x-imWidth/2
     y=y-imHeight/2
     
-    x_model, y_model, Lambda = main(p, SEDMode,booPlot,specFile,intNormalize,booDistort,booInterpolate,booPlotCalibPoints,booPlotLabels,plotBackImage,booGaussianFit)
+    x_model, y_model, Lambda = main(p, SEDMode,booPlot,calibDataFileName,intNormalize,booDistort,booInterpolate,booPlotCalibPoints,booPlotLabels,plotBackImage,booGaussianFit)
     
     #Loop through the input wavelengths, and find the closest output.
     #The best model fits in x and y (out of 2 options) is called x_best and y_best

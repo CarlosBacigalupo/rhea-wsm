@@ -21,8 +21,8 @@ import image_calibration as ic
 
 
 
-def do_SED_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): 
-    #todo change format to SEDMap to be equal SEDFlat
+def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): 
+
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -80,7 +80,7 @@ def do_SED_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda
         SEDMap = SEDMap[SEDMap[:,0]>=minLambda]     
         SEDMap = SEDMap[SEDMap[:,0]<=maxLambda]     
                                   
-    elif SEDMode==SED_MODE_FILE: #From file
+    elif SEDMode==SED_MODE_FILE: #From flat file
         SEDMap = np.array([])
          
         for line in open(specFile):
@@ -96,7 +96,7 @@ def do_SED_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda
         SEDMap.transpose()
 
                 
-    #Normalize the intensity"""   
+    #Normalize the intensity  
     if intNormalize!=0:    
         fluxRange=(max(SEDMap[SEDMapLambda])-min(SEDMap[SEDMapLambda]))
         
@@ -107,7 +107,7 @@ def do_SED_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda
        
     return SEDMap
     
-def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
+def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -141,7 +141,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
     #Distortion np.array
     K = [] #p[11]
        
-       
+    #Reads xml file
     Optics, Beams, fLength, p, stheta = xml_parser.read_all()
     
     
@@ -153,7 +153,7 @@ def doCCDMap(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def doPlot(CCDMap, CalibPoints=False, Labels=False, BackImage='c_noFlat_sky_0deg_460_median.fits'):
+def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='test.fits'):
         
         CCDX = CCDMap[CCDMapX] 
         CCDY = CCDMap[CCDMapY] 
@@ -225,7 +225,7 @@ def doPlot(CCDMap, CalibPoints=False, Labels=False, BackImage='c_noFlat_sky_0deg
         
         plt.show()
 
-def doFindFit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
+def do_find_fit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -250,6 +250,77 @@ def doFindFit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.489973
     fit = leastsq(wt.fit_errors,p_try, args=[4,False,calibDataFileName,0,False,False,False,True,'c_noFlat_sky_0deg_460_median.fits',False], full_output=True, factor=factor_try, diag=diag_try)
 
     return fit
+def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True):
+    '''
+    Extracts peaks with sextractor
+    Imports found points into arrays
+    Plots found points on image
+       
+    Parameters
+    ----------
+    image_filename : string
+        Name of the calibration image 
+
+    analyze : boolean
+        Run the analysis (reads the last output otherwise)
+
+    Returns
+    -------
+    nottin
+      
+    Notes
+    -----
+    '''      
+    if analyze: ic.analyze_image_sex(image_filename, output_filename)
+    
+    #Loads from the iraf output file
+    image_map_x, image_map_y = wt.load_image_map_sex(image_filename, output_filename)
+    
+    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
+    
+    #Create SEDMap from Mercury emission
+    SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    
+    #Create the model based on default parameters
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = do_ccd_map(SEDMap)  
+    
+    #Create list of 
+    #todo turn this into a 2D array calculation
+    for i in range(len(image_map_x)):
+    
+        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        closest_point=np.min(distance_array)
+        closest_point_index=np.where(distance_array==closest_point)[0][0]       
+        image_map_lambda[i] = CCDLambda[closest_point_index]
+        
+        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+        lambda_closest_point=np.min(lambda_distance)
+        lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
+        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    
+    #Create output file with calibration data
+    #todo, add sigmas    
+    f = open(output_filename,'w')
+    for i in range(len(image_map_x)):
+        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
+        f.write(out_string) 
+    f.close()
+    
+    #Plot (probably remove)
+    hdulist = pyfits.open(image_filename)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+    im = pyfits.getdata(image_filename)  
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    plt.set_cmap(cm.Greys_r)
+    ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
+    plt.title(str(len(image_map_x))+' point(s) found')
+    plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    plt.show()
+    
+    return
 
 def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     '''
@@ -280,10 +351,10 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
     
     #Create SEDMap from Mercury emission
-    SEDMap = do_SED_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     
     #Create the model based on default parameters
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = doCCDMap(SEDMap)  
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = do_ccd_map(SEDMap)  
     
     #Create list of 
     #todo turn this into a 2D array calculation
