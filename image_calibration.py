@@ -25,7 +25,7 @@ def analyze_image(image_filename='test.fits', image_map_filename='image_map.txt'
 
 def analyze_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
       
-    os_command = 'sex '+image_filename+' -c spectrographs/rhea.sex -CATALOG_NAME '+image_map_filename
+    os_command = '/usr/local/bin/sex '+image_filename+' -c spectrographs/rhea.sex -CATALOG_NAME '+image_map_filename
     os.system(os_command) #iraf.daofind(image = input_image, output = outfile)
 #
 #    iraf.noao(_doprint=0)     # load noao

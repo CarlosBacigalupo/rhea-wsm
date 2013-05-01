@@ -207,10 +207,10 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
         elif optType==OpticsRGrating:
             isValid=False
             GPeriod=Optics[i][OpticsGPeriod]
-            if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
-                s=Optics[i][OpticsCoords1]
-                l=Optics[i][OpticsCoords2]
-                Beam, isValid = Grating(Beam, s, l, nOrder, Lambda, GPeriod)
+#            if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
+            s=Optics[i][OpticsCoords1]
+            l=Optics[i][OpticsCoords2]
+            Beam, isValid = Grating(Beam, s, l, nOrder, Lambda, GPeriod)
         
         n_i=n_r
 
@@ -735,6 +735,7 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
             #This is the actual tracing of the ray for each wavelength
 #            v, isValid = wt.rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l)
             v, isValid = rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle)
+            print v
             
             if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
                 x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
@@ -748,7 +749,6 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
                     CCDLambda = np.array([Lambda])
                     CCDIntensity = np.array([inI*outI])
                     CCDOrder = np.array([nOrder])
-                else:
                     CCDX = np.append(CCDX,[x],0)
                     CCDY = np.append(CCDY,[z],0)
                     CCDLambda = np.append(CCDLambda,[Lambda],0)
@@ -981,7 +981,7 @@ def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,
 
     return fit
 
-def fit_errors(p, SEDMode=0, booPlot=False, calibDataFileName='c_noFlat_Hg_0deg_10s.txt', intNormalize=1, booDistort=False, booInterpolate=False, booPlotCalibPoints=False, booPlotLabels=False, plotBackImage='c_noFlat_sky_0deg_460_median.fits',booGaussianFit=False):
+def fit_errors(p, args):
     #main will return these vectors in a random order. 
     #We assume that there are no rounding errors (probably a hack?)
     #and will use a floating point == to identify the (x,y) corresponding
@@ -992,6 +992,8 @@ def fit_errors(p, SEDMode=0, booPlot=False, calibDataFileName='c_noFlat_Hg_0deg_
     #the input each wavelength came from was lost.
     #print p
     
+    SEDMap = args[0]
+    calibDataFileName = args[1]
     x,y,waveList,xSig,ySig = read_calibration_data(calibDataFileName)
 
     hdulist = pyfits.open('test.fits')
@@ -1001,7 +1003,7 @@ def fit_errors(p, SEDMode=0, booPlot=False, calibDataFileName='c_noFlat_Hg_0deg_
     x=x-imWidth/2
     y=y-imHeight/2
     
-    x_model, y_model, Lambda = main(p, SEDMode,booPlot,calibDataFileName,intNormalize,booDistort,booInterpolate,booPlotCalibPoints,booPlotLabels,plotBackImage,booGaussianFit)
+    x_model, y_model, Lambda, Intensity, Order = wsm.do_ccd_map(SEDMap, p)
     
     #Loop through the input wavelengths, and find the closest output.
     #The best model fits in x and y (out of 2 options) is called x_best and y_best

@@ -21,7 +21,7 @@ import image_calibration as ic
 
 
 
-def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.200, maxLambda=1., deltaLambda=0.01, intNormalize=0, specFile=''): 
+def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.001, intNormalize=0, specFile=''): 
 
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
@@ -221,11 +221,12 @@ def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='test.fits'):
         
         plt.title('Order Identification')
 
-        plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+#        plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+        plt.axis([-imWidth , imWidth , -imHeight , imHeight])
         
         plt.show()
 
-def do_find_fit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
+def do_find_fit(SEDMap, calibDataFileName, p_try=[271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -247,9 +248,10 @@ def do_find_fit(calibDataFileName, p_try=[271.92998622,   91.03999719,   59.4899
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
 
-    fit = leastsq(wt.fit_errors,p_try, args=[4,False,calibDataFileName,0,False,False,False,True,'c_noFlat_sky_0deg_460_median.fits',False], full_output=True, factor=factor_try, diag=diag_try)
+    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, calibDataFileName], full_output=True, factor=factor_try, diag=diag_try)
 
     return fit
+
 def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True):
     '''
     Extracts peaks with sextractor
