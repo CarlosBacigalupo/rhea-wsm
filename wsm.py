@@ -114,7 +114,7 @@ def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 8
     Parameters
     ----------
     SEDMap : np.array
-        n x 2 np.array with wavelength, Energy
+        n x 2 np.array [wavelength, Energy]
     
     p : np np.array (optional)
         (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,

@@ -3,7 +3,7 @@ Python module with useful functions to be used by the Wavelength Scale Model cod
 
 Functions:
 
-do_SED_map       ===> Loads an SED Map of different kinds
+do_SED_map     ===> Loads an SED Map of different kinds
 nkzfs8         ===> Calculates refractive index of prism for a given wavelength
 n              ===> Calculates refractive index of air for a given wavelength
 Snell3D        ===> Computes new direction of vector as it goes across a surface
@@ -194,6 +194,8 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
     l=grating, parallel to the grooves.
     d=blaze period'''
     
+    v = Beam
+    
     "loops through optics array"
     for i in range(len(Optics)):
 
@@ -203,17 +205,17 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
         
         if optType==OpticsBoundary:
             surfNormal=Optics[i][OpticsCoords1]           
-            Beam = Snell3D(n_i, n_r, Beam, surfNormal)
+            v_out = Snell3D(n_i, n_r, v, surfNormal)
         elif optType==OpticsRGrating:
             isValid=False
             GPeriod=Optics[i][OpticsGPeriod]
 #            if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
             s=Optics[i][OpticsCoords1]
             l=Optics[i][OpticsCoords2]
-            Beam, isValid = Grating(Beam, s, l, nOrder, Lambda, GPeriod)
+            v_out, isValid = Grating(v, s, l, nOrder, Lambda, GPeriod)
         
-        n_i=n_r
-
+        n_i = n_r
+        v = v_out
 
 #                           
 #        """Vector transform due to first surface"""
@@ -232,7 +234,7 @@ def rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle):
 #            """Vector transform due to fourth surface"""
 #            u = Snell3D(nPrism, nAir, u, n5)
             
-    return Beam, isValid
+    return v, isValid
 
 def Intensity(Lambda, minLambda, maxLambda):
     '''
@@ -735,7 +737,7 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
             #This is the actual tracing of the ray for each wavelength
 #            v, isValid = wt.rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l)
             v, isValid = rayTraceFlex(Beam, Lambda, nOrder, Optics, blaze_angle)
-            print v
+#            print v
             
             if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
                 x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
@@ -749,6 +751,7 @@ def CCDLoop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=
                     CCDLambda = np.array([Lambda])
                     CCDIntensity = np.array([inI*outI])
                     CCDOrder = np.array([nOrder])
+                else:
                     CCDX = np.append(CCDX,[x],0)
                     CCDY = np.append(CCDY,[z],0)
                     CCDLambda = np.append(CCDLambda,[Lambda],0)

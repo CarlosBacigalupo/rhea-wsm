@@ -1,10 +1,10 @@
 import wsm
 
-#a=wsm.do_sed_map(0,0.3,0.8,0.001)
-#b=wsm.do_ccd_map(a)
-#wsm.do_plot(b)
+a=wsm.do_sed_map()
+b=wsm.do_ccd_map(a)
+wsm.do_plot(b)
 
-wsm.do_read_calib_sex(analyze=True, output_filename='calib_out.txt')
+#wsm.do_read_calib_sex(analyze=True, output_filename='calib_out.txt')
 #SEDMap=wsm.do_sed_map(SEDMode=wsm.SED_MODE_CALIB, specFile='calib_out.txt')
 #p=wsm.do_find_fit(SEDMap, 'calib_out.txt')
 #print p
