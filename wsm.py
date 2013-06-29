@@ -21,7 +21,7 @@ import image_calibration as ic
 
 
 
-def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.001, intNormalize=0, specFile=''): 
+def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, specFile=''): 
 
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
@@ -53,7 +53,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
     -----
     '''  
     if SEDMode==SED_MODE_FLAT: #Flat
-        SEDMap = np.array((np.arange(minLambda, maxLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda, deltaLambda).size)))
+        SEDMap = np.array((np.arange(minLambda, maxLambda + deltaLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda + deltaLambda, deltaLambda).size)))
 
     elif SEDMode==SED_MODE_RANDOM: #Random
         
@@ -106,7 +106,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
             SEDMap = np.array((SEDMap[SEDMapLambda], (SEDMap[SEDMapIntensity]-min(SEDMap[SEDMapIntensity]))/(fluxRange+1) ))
        
     return SEDMap
-    
+
 def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
@@ -138,22 +138,71 @@ def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 8
     -----  
     '''   
     
+    #####################################
+#     #Prism surface 1
+#    n1phi = np.radians(p[2])   
+#    n1theta = np.radians(p[3]) 
+#    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
+#    #Prism surface 2
+#    n2phi = np.radians(p[4])   
+#    n2theta = np.radians(p[5]) 
+#    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
+#    Optics = np.append([[n1,[0,0,0],OpticsBoundary,'nkzfs8',0]], [[n2,[0,0,0],OpticsBoundary,'air',0]], 0)
+#    
+#    #Grating
+#    d = p[9]  #blaze period in microns  
+#    sphi = np.radians(p[6])   
+#    stheta = np.radians(p[7]) 
+#    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves   
+#    #Now find two vectors (a and b) perpendicular to s
+#    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
+#    b = np.cross(a,s)
+#    #Create l from given alpha using a and b as basis
+#    alpha = np.radians(p[8]) 
+#    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
+#    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
+#
+#    #Prism surface 3 (surf #2 on return)
+#    n4=-n2
+#    Optics = np.append(Optics,[[n4,[0,0,0],OpticsBoundary,'nkzfs8',0]], 0)
+#    
+#    #Prism surface 4 (surf #1 on return)
+#    n5=-n1     
+#    Optics = np.append(Optics, [[n5,[0,0,0],OpticsBoundary,'air',0]], 0)
+#
+#    
+#    #Initial beam
+#    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
+#    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
+#    Beams=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
+#       
+#    #Focal length
+#    fLength = p[10]
+#    
+    #############################################################
+    
     #Distortion np.array
     K = [] #p[11]
        
     #Reads xml file
     Optics, Beams, fLength, p, stheta = xml_parser.read_all()
-    
+     
+    #hack for RHEA. Needs manual reverse prism on beam return. todo
+    Optics[4][0]=-Optics[0][0]
+    Optics[3][0]=-Optics[1][0]
+#    
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.CCDLoop(SEDMap, Beams , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+#    CCDX2, CCDY2, CCDLambda2, CCDIntensity2, CCDOrder2 = wt.ccd_loop(SEDMap, Beams, Optics2, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
+    print CCDX, CCDY
     #Distort if any distortion data present
     if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='test.fits'):
+def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='fits/c_noFlat_sky_0deg_460_median.fits'):
         
         CCDX = CCDMap[CCDMapX] 
         CCDY = CCDMap[CCDMapY] 

@@ -1,6 +1,7 @@
 import wsm
 
-a=wsm.do_sed_map()
+#a=wsm.do_sed_map(minLambda=0.6787, maxLambda=0.6788, deltaLambda=0.0001)
+a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
 b=wsm.do_ccd_map(a)
 wsm.do_plot(b)
 

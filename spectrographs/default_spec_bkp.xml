@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <spectrograph name="RHEA">
   <focal_length param="10">199.13548823</focal_length>
   <beams>
@@ -26,13 +26,13 @@
     </optical_element>
     <optical_element type="boundary">
       <medium>nkzfs8</medium>
-      <phi param="4">89.67646101</phi>
-      <theta param="5">89.82098015</theta>
+      <phi>269.67646101</phi>
+      <theta>90.17901985</theta>
     </optical_element>
     <optical_element type="boundary">
       <medium>air</medium>
-      <phi param="2">59.6543365</phi>
-      <theta param="3">90.21334551</theta>
+      <phi>239.6543365</phi>
+      <theta>89.78665449</theta>
     </optical_element>
   </optical_elements>
 </spectrograph>
