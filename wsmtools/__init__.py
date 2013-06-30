@@ -10,7 +10,7 @@ Snell3D        ===> Computes new direction of vector as it goes across a surface
 Grating        ===> Computes new direction of vector as it reflects off a grating
 RayTrace       ===> Computes location on chip of vector as it progresses through spectrograph for a wavelenth
 Intensity      ===> Retrieves or calculates the expected relative intensity based on distance from the central lambda
-extractOrder   ===> Extracts an order from the spectrum
+extract_order   ===> Extracts an order from the spectrum
 find_nearest   ===> finds the nearest element of array to a given value
 fftshift1D     ===> shifts an image by sub-pixel amounts in one direction
 fftshift       ===> shifts an image by sub-pixel amounts in 2D
@@ -24,6 +24,7 @@ from constants import *
 from matplotlib import *
 import image_calibration as ic
 import time
+from optics import *
 
 def ccd_loop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     ''' todo
@@ -85,7 +86,7 @@ def ccd_loop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate
                 start_time = time.time()
                 v, isValid = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
                 elapsed_time = time.time() - start_time
-                print 'Elepased time: ' + str(elapsed_time)
+                #print 'Elepased time: ' + str(elapsed_time)
                 
                 if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
                     x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
@@ -165,36 +166,10 @@ def identify_image_map_lambda(image_map_x, image_map_y, back_image):
     
     plot(image_map_x,image_map_y)
 
-def load_image_map(image_filename='test.fits', image_map_filename='image_map.txt'):
-    
-
-    
-    image_map_x=[]
-
-    try: image_map_file = open(image_map_filename)
-    except Exception: return 'ERROR' # <-- change this to returning a number
-    image_map_file_temp = image_map_file.readlines()
-
-    for lines in image_map_file_temp:
-        if lines[0][0] != '#': 
-            linetemp = str.split(lines)
-
-            if len(image_map_x)==0:
-                image_map_x = np.array([float(linetemp[0])])
-                image_map_y = np.array([float(linetemp[1])])
-            else:
-                image_map_x = np.append(image_map_x,[float(linetemp[0])],0)
-                image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
-                
-    return image_map_x, image_map_y
-
 def load_image_map_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
-    
-
-    
     image_map_x=[]
 
-    try: image_map_file = open(image_map_filename)
+    try: image_map_file = open(TEMP_DIR+image_map_filename)
     except Exception: return 'ERROR' # <-- change this to returning a number
     image_map_file_temp = image_map_file.readlines()
 
@@ -210,57 +185,7 @@ def load_image_map_sex(image_filename='test.fits', image_map_filename='image_map
                 image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
                 
     return image_map_x, image_map_y
-
-def nkzfs8(Lambda):
-    #### absorved by n()
-    '''Function that calculates the refractive index of the prism for a given wavelength'''
-    x = float(Lambda)
-    n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
     
-    return n
-    
-def n(Lambda, medium='air', t=18, p=101325):
-    
-    if medium=='air':
-        '''Function that calculates the refractive index of air for a given wavelength'''
-        n = (0.0472326 * (173.3 - (1/Lambda)**2)**(-1))+1
-    elif medium=='nkzfs8':  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
-        '''Function that calculates the refractive index of the prism for a given wavelength'''
-        x = float(Lambda)
-        n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
-
-    return n
-
-def Snell3D(n_i,n_r,u,n):
-    """Computes the new direction of a vector when changing medium. 
-    n_i, n_r = incident and refractive indices"""
- 
-    u_p = u - np.dot(u,n)*n
-    u_p /= np.linalg.norm(u_p)
-    
-    theta_i = np.arccos(np.dot(u,n))
-    
-    if n_i*np.sin(theta_i)/n_r<=1:
-        theta_f = np.arcsin(n_i*np.sin(theta_i)/n_r)
-        u = u_p*np.sin(np.pi-theta_f) + n*np.cos(np.pi-theta_f)    
-
-    return u       
-
-def Grating(u, s, l, nOrder, Lambda, d):
-    """Computes the new direction of a vector when hitting a grating."""
-    
-    isValid=False
-
-    n = np.cross(s, l) 
-    u_l = np.dot(u, l)
-    u_s = np.dot(u, s) + nOrder*Lambda/d  
-    if (1-u_l**2 -u_s**2)>=0: 
-        u_n = np.sqrt(1- u_l**2 - u_s**2)
-        u = u_l*l + u_s*s + u_n*n
-        isValid=True
-
-    return u, isValid     
-
 def Intensity(Lambda, minLambda, maxLambda):
     '''
     Retrieves or calculates the expected relative intensity based on distance from the central lambda value
@@ -309,7 +234,7 @@ def Intensity(Lambda, minLambda, maxLambda):
        
     return z
 
-def extractOrder(x,y,image):
+def extract_order(x,y,image):
     
     #Don't know what these fluxes are yet!
     flux=np.zeros(len(y))
@@ -317,30 +242,24 @@ def extractOrder(x,y,image):
     flux3=np.zeros(len(y))
 
     #Grab image and sizes
-    hdulist = pyfits.open(image)
+    hdulist = pyfits.open(FITS_DIR + image)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-    
-    im = pyfits.getdata(image)  
-
-    x += imWidth/2
-    y += imHeight/2
+    im = pyfits.getdata(FITS_DIR + image)  
+#    x += imWidth/2  #correction for pixel number
+#    y += imHeight/2 
 
     
     for k in range(0,len(y)):
         ###mikes'
         x_int = round(x[k])
         #if e.g. x = 10.4, this goes from 5 to 15, and xv at the center is 0.4
-
-        
         in_image_temp = im[y[k],x_int-5:x_int+6]
-
 #        in_image_temp=im[y[k],x_int-5]        
 #        for i in range(-4,6):
-#            in_image_temp = np.hstack((in_image_temp,im[y[k+i-4],x_int+i]))
-            
+#            in_image_temp = np.hstack((in_image_temp,im[y[k+i-4],x_int+i]))          
         in_image_temp[in_image_temp < 0] = 0
-        xv = np.arange(-5,6) - x[k] + x_int
+        xv = np.arange(-5,6)  + x_int - x[k]
         flux[k] =  np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
 #        flux2[k] = np.sum(in_image_temp)
 #        flux3[k] = np.sum(in_image_temp)- np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
@@ -370,7 +289,7 @@ def extractOrder(x,y,image):
 #    plt.show()
           
 
-    return flux, flux2 +np.average(flux), flux3
+    return flux
 
 def find_nearest(array,value):
     idx=(np.abs(array-value)).argmin()
@@ -411,6 +330,7 @@ def fftshift1D(inImage, shift):
     return np.real(np.fft.ifft(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1])))) 
 
 def fftshift(inImage, shift):
+
     '''
     This program shifts an image by sub-pixel amounts.
        
@@ -442,27 +362,20 @@ def fftshift(inImage, shift):
     xy[0,:,:] = (((xy[0,:,:] + sh[0]/2) % sh[0]) - sh[0]/2)/float(sh[0])
     xy[1,:,:] = (((xy[1,:,:] + sh[1]/2) % sh[1]) - sh[1]/2)/float(sh[1])
     
-    return np.real(np.fft.ifft2(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1])))) 
-
-def create_inter_func(CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, nOrder):
-    
-    xPlot = CCDX[CCDOrder==nOrder]
-    yPlot = CCDY[CCDOrder==nOrder]
-    LambdaPlot = CCDLambda[CCDOrder==nOrder]
-    
-    fLambda = interpolate.interp1d(yPlot, LambdaPlot)
-    fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
-
-    return fX, fLambda
+    return np.real(np.fft.ifft2(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1]))))
 
 def calculate_from_Y(Y, fX, fLambda):
     
-    newY=np.arange(np.min(Y),np.max(Y))           
-    newX=fX(newY)            
+    newY=np.arange(np.min(Y),np.max(Y)) #Create continuous array from Y       
+    
+    newX=fX(newY) #Creates newX from continuous newY         
+    
+    #clean results
     nanMap= np.isnan(newX)
     newX=newX[-nanMap]
     newY=newY[-nanMap]            
-    Lambdas=fLambda(newY)
+    
+    Lambdas=fLambda(newY)   #Creates lambdas from continuous newY
     
     return newX, newY, Lambdas
             
@@ -491,107 +404,6 @@ def read_calibration_data(calibrationFile):
 
     CalibrationMap=np.loadtxt(calibrationFile)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
- 
-def wav2RGB(Lambda, Intensity):
-    
-    """Converts Lambda into RGB"""
-    out=np.array([0,0,0])
-    
-    for i in range(Lambda.size):
-    
-        w = Lambda[i]
-        I = Intensity[i]
-    
-        # colour
-        if w >= .380 and w < .440:
-            R = -(w - .440) / (.440 - .350)
-            G = 0.0
-            B = 1.0
-        elif w >= .440 and w < .490:
-            R = 0.0
-            G = (w - .440) / (.490 - .440)
-            B = 1.0
-        elif w >= .490 and w < .510:
-            R = 0.0
-            G = 1.0
-            B = -(w - .510) / (.510 - .490)
-        elif w >= .510 and w < .580:
-            R = (w - .510) / (.580 - .510)
-            G = 1.0
-            B = 0.0
-        elif w >= .580 and w < .645:
-            R = 1.0
-            G = -(w - .645) / (.645 - .580)
-            B = 0.0
-        elif w >= .645 and w <= .780:
-            R = 1.0
-            G = 0.0
-            B = 0.0
-        else:
-            R = 1.0
-            G = 1.0
-            B = 1.0
-    
-        # intensity correction
-        if w >= .3800 and w < .4200:
-            SSS = 0.3 + 0.7*(w - .3500) / (.4200 - .3500)
-        elif w >= .4200 and w <= .7000:
-            SSS = 1.0
-        elif w > .7000 and w <= .7800:
-            SSS = 0.3 + 0.7*(.7800 - w) / (.7800 - .7000)
-        else:
-            SSS = 1.0
-        SSS *= (I)
-
-        out=np.vstack((out,np.array( [float(SSS*R), float(SSS*G), float(SSS*B)]))) 
-        
-    return out[1:,]
-
-def distort( inX, inY, K=[0], Xc=0 , Yc=0):        
-    '''
-    Transforms coordinate values based on Brown's 1966 model.
-       
-    Parameters
-    ----------
-    inX : np np.array
-        1 x n np.array of X-coordinates to be transformed.
-    inY : np np.array
-        1 x n np.array of Y-coordinates to be transformed.
-    K : np np.array
-        1 x n np.array of distortion factors.
-        The length of the np.array determines the order of the polynomial. 
-    Xc : integer
-        X-coord of distortion center.
-    Yc : integer
-        Y-coord of distortion center.
-
-    Returns
-    -------
-    outX : np np.array
-        1 x n np.array of X-coordinates transformed.
-    outY : np np.array
-        1 x n np.array of Y-coordinates transformed.
-      
-    Notes
-    -----
-    
-    '''
-    
-#    Denom=1
-#    index=1
-#    r = np.sqrt((inX-np.ones(len(inX))*Xc)**2+(inY-np.ones(len(inY))*Yc)**2)
-#    
-#    for Kn in K:
-#        Denom += Kn * r**(index*2)
-#        index += 1
-#        
-#    outX = inX / Denom + Xc   
-#    outY = inY / Denom + Yc
-
-    outX=inX+(inX-Xc)/160
-    outY=inY
-    
-    return outX, outY
  
 def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
     '''

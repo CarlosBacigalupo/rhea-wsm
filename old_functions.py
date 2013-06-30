@@ -538,3 +538,124 @@ def rayTrace(nAir, nPrism, nOrder, Lambda, d, u, n1, n2, n4, n5, s, l, booLog=6)
 
     return u, isValid
 
+def nkzfs8(Lambda):
+    #### absorved by n()
+    '''Function that calculates the refractive index of the prism for a given wavelength'''
+    x = float(Lambda)
+    n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
+    
+    return n
+
+def analyze_image(image_filename='test.fits', image_map_filename='image_map.txt'):
+    iraf.noao(_doprint=0)     # load noao
+    iraf.digiphot(_doprint=0) # load digiphot
+    iraf.apphot(_doprint=0)   # load apphot
+    
+
+    
+    #iraf.daofind.setParam('image',FitsFileName)        #Set ImageName
+    iraf.daofind.setParam('verify','no')            #Don't verify
+    iraf.daofind.setParam('interactive','no')        #Interactive
+    iraf.daofind.setParam('datamin','10000')        #Min Good Value
+    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive   
+#    iraf.daofind.setParam('interactive','no')        #Interactive
+
+    
+    check_if_file_exists(image_map_filename)
+    try: iraf.daofind(image = image_filename, output = image_map_filename)
+    except Exception: return 0
+#    brightest_star_info = find_brightest_star(outfile)
+    return
+
+def find_brightest_star(readinfile):
+    try: starfile = open(readinfile)
+    except Exception: return 'ERROR' # <-- change this to returning a number
+    startemp = starfile.readlines()
+    brighteststar = 50
+    xpixel = 0
+    ypixel = 0
+    for lines in startemp:
+        if lines[0][0] != '#': #don't want the comments
+            linetemp = str.split(lines)
+            #print linetemp
+            if 1: #float(linetemp[2]) < brighteststar:
+                starmag = 1 #float(linetemp[2])
+                xpixel = float(linetemp[0])
+                ypixel = float(linetemp[1])
+                starsharp = float(linetemp[3])
+    return [starmag, xpixel, ypixel, starsharp]
+
+
+def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
+    '''
+    Extracts peaks with daofind
+    Imports found points
+    Plots found points on image
+       
+    Parameters
+    ----------
+    image_filename : string
+        Name of the calibration image 
+
+    analyze : boolean
+        Run the pyraf analysis (reads the last output otherwise)
+
+    Returns
+    -------
+    nottin
+      
+    Notes
+    -----
+    '''      
+    if analyze: ic.analyze_image(image_filename)
+    
+    #Loads from the iraf output file
+    image_map_x, image_map_y = wt.load_image_map()
+    
+    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
+    
+    #Create SEDMap from Mercury emission
+    SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    
+    #Create the model based on default parameters
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = do_ccd_map(SEDMap)  
+    
+    #Create list of 
+    #todo turn this into a 2D array calculation
+    for i in range(len(image_map_x)):
+    
+        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        closest_point=np.min(distance_array)
+        closest_point_index=np.where(distance_array==closest_point)[0][0]       
+        image_map_lambda[i] = CCDLambda[closest_point_index]
+        
+        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+        lambda_closest_point=np.min(lambda_distance)
+        lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
+        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    
+    #Create output file with calibration data
+    #todo, add sigmas    
+    f = open(output_filename,'w')
+    for i in range(len(image_map_x)):
+        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
+        f.write(out_string) 
+    f.close()
+    
+    #Plot (probably remove)
+    hdulist = pyfits.open(image_filename)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+    im = pyfits.getdata(image_filename)  
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    plt.set_cmap(cm.Greys_r)
+    ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
+    plt.title(str(len(image_map_x))+' point(s) found')
+    plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+    plt.show()
+    
+    return
+
+

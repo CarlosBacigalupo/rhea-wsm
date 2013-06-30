@@ -1,9 +1,21 @@
 import wsm
+from constants import *
+import numpy as np
 
-#a=wsm.do_sed_map(minLambda=0.6787, maxLambda=0.6788, deltaLambda=0.0001)
-a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
+a=wsm.do_sed_map()
+#a=wsm.do_sed_map(SEDMode = SED_MODE_SOLAR)
+#wsm.do_plot_sed_map(a)
+
+#a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
 b=wsm.do_ccd_map(a)
-wsm.do_plot(b)
+c=wsm.do_full_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
+
+
+
+
+
+print 'do stuff now'
+#wsm.do_plot_ccd_map(b)
 
 #wsm.do_read_calib_sex(analyze=True, output_filename='calib_out.txt')
 #SEDMap=wsm.do_sed_map(SEDMode=wsm.SED_MODE_CALIB, specFile='calib_out.txt')
@@ -28,13 +40,13 @@ wsm.do_plot(b)
 
 
 
-#import wsm
+
 #
 #a=wsm.do_sed_map(SEDMode=wsm.SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
 # 
 #b=wsm.do_ccd_map(a)
 #print b
-#wsm.do_plot(b)
+#wsm.do_plot_ccd_map(b)
 
 
 

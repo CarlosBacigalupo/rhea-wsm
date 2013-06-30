@@ -1,6 +1,0 @@
-Calibration read
-1 read input calibration fits, output centroid of main points
-2 import cetroid output file into 2 arrays
-3 Create wsm
-4 use wsm to find closest lambda for each centroid
-5 Suggest lambda identification based on smallest difference between lambda and known emission source

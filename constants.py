@@ -1,6 +1,6 @@
 #Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
-minOrder=1
-maxOrder=200
+minOrder=73
+maxOrder=146
 deltaOrder=1
 pixelSize= 5.4 
 
@@ -16,11 +16,11 @@ SED_MODE_SOLAR=2
 SED_MODE_FILE=3
 SED_MODE_CALIB=4
 
-CCDMapX=0
-CCDMapY=1
-CCDMapLambda=2
-CCDMapIntensity=3
-CCDMapOrder=4
+CCD_MAP_X = 0
+CCD_MAP_Y = 1 
+CCD_MAP_LAMBDA = 2
+CCD_MAP_INTENSITY = 3
+CCD_MAP_ORDER = 4
 
 #SEDMap
 SEDMapLambda=0
@@ -36,3 +36,9 @@ OpticsType=2
 OpticsN=3
 OpticsGPeriod=4
 OpticsGBlAngle=5
+
+#File info
+SPEC_DIR='spectrographs/'
+FITS_DIR='fits/'
+TEMP_DIR='out_files/'
+SEXTRACTOR_DIR='/usr/bin/'

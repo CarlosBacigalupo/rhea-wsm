@@ -1,68 +1,19 @@
 from pyraf import iraf
 import os
 import numpy as np
+from constants import *
+import subprocess
 
-def analyze_image(image_filename='test.fits', image_map_filename='image_map.txt'):
-    iraf.noao(_doprint=0)     # load noao
-    iraf.digiphot(_doprint=0) # load digiphot
-    iraf.apphot(_doprint=0)   # load apphot
-    
-    
-    
-    #iraf.daofind.setParam('image',FitsFileName)        #Set ImageName
-    iraf.daofind.setParam('verify','no')            #Don't verify
-    iraf.daofind.setParam('interactive','no')        #Interactive
-    iraf.daofind.setParam('datamin','10000')        #Min Good Value
-    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive   
-#    iraf.daofind.setParam('interactive','no')        #Interactive
-
-    
-    check_if_file_exists(image_map_filename)
-    try: iraf.daofind(image = image_filename, output = image_map_filename)
-    except Exception: return 0
-#    brightest_star_info = find_brightest_star(outfile)
-    return
 
 def analyze_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
       
-    os_command = '/usr/local/bin/sex '+image_filename+' -c spectrographs/rhea.sex -CATALOG_NAME '+image_map_filename
-    os.system(os_command) #iraf.daofind(image = input_image, output = outfile)
-#
-#    iraf.noao(_doprint=0)     # load noao
-#    iraf.digiphot(_doprint=0) # load digiphot
-#    iraf.apphot(_doprint=0)   # load apphot
-#  
-#    #iraf.daofind.setParam('image',FitsFileName)        #Set ImageName
-#    iraf.daofind.setParam('verify','no')            #Don't verify
-#    iraf.daofind.setParam('interactive','no')        #Interactive
-#    iraf.daofind.setParam('datamin','10000')        #Min Good Value
-#    iraf.daofind.setParam('fwhmpsf','2.5')        #Interactive   
-##    iraf.daofind.setParam('interactive','no')        #Interactive
+    os_command = 'sex '+FITS_DIR+image_filename+' -c '+SPEC_DIR+'rhea.sex -CATALOG_NAME '+TEMP_DIR+image_map_filename
+    proc = subprocess.Popen([os_command,SEXTRACTOR_DIR], stdout=subprocess.PIPE, shell=True)
+    out, err_result = proc.communicate()
 
-#    
-#    check_if_file_exists(image_map_filename)
-#    try: iraf.daofind(image = image_filename, output = image_map_filename)
-#    except Exception: return 0
-#    brightest_star_info = find_brightest_star(outfile)
-    return
+    # todo check results of os call and pass err_result
+    return err_result, out
 
-def find_brightest_star(readinfile):
-    try: starfile = open(readinfile)
-    except Exception: return 'ERROR' # <-- change this to returning a number
-    startemp = starfile.readlines()
-    brighteststar = 50
-    xpixel = 0
-    ypixel = 0
-    for lines in startemp:
-        if lines[0][0] != '#': #don't want the comments
-            linetemp = str.split(lines)
-            #print linetemp
-            if 1: #float(linetemp[2]) < brighteststar:
-                starmag = 1 #float(linetemp[2])
-                xpixel = float(linetemp[0])
-                ypixel = float(linetemp[1])
-                starsharp = float(linetemp[3])
-    return [starmag, xpixel, ypixel, starsharp]
 
 def check_if_file_exists(filename):
     #i = 0 # counter to stop this going on forever

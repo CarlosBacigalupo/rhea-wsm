@@ -79,6 +79,8 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         #Remove rows outside the wavelength range
         SEDMap = SEDMap[SEDMap[:,0]>=minLambda]     
         SEDMap = SEDMap[SEDMap[:,0]<=maxLambda]     
+        
+        SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
         SEDMap = np.array([])
@@ -91,7 +93,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
 
     elif SEDMode==SED_MODE_CALIB: #From calibration file
         
-        a=np.loadtxt(specFile).transpose()
+        a=np.loadtxt(TEMP_DIR+specFile).transpose()
         SEDMap=np.array((a[2],np.ones(len(a[2]))))
         SEDMap.transpose()
 
@@ -107,7 +109,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
        
     return SEDMap
 
-def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684,  65.33694031, 1.19265536, 31.50321471, 199.13548823]):
+def do_ccd_map(SEDMap):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -115,12 +117,7 @@ def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 8
     ----------
     SEDMap : np.array
         n x 2 np.array [wavelength, Energy]
-    
-    p : np np.array (optional)
-        (beam phi, beam theta, prism1 phi, prism1 theta, prism2 phi, prism2 theta, grating phi, grating theta, grating alpha,
-         blaze period (microns), focal length(mm), distortion term) <-- optical arrangement
-         
-    
+        
     Returns
     -------
     CCDX : np.array
@@ -137,50 +134,7 @@ def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 8
     Notes
     -----  
     '''   
-    
-    #####################################
-#     #Prism surface 1
-#    n1phi = np.radians(p[2])   
-#    n1theta = np.radians(p[3]) 
-#    n1=np.array([np.cos(n1phi)*np.sin(n1theta),np.sin(n1phi)*np.sin(n1theta),np.cos(n1theta)])
-#    #Prism surface 2
-#    n2phi = np.radians(p[4])   
-#    n2theta = np.radians(p[5]) 
-#    n2=np.array([np.cos(n2phi)*np.sin(n2theta),np.sin(n2phi)*np.sin(n2theta),np.cos(n2theta)])
-#    Optics = np.append([[n1,[0,0,0],OpticsBoundary,'nkzfs8',0]], [[n2,[0,0,0],OpticsBoundary,'air',0]], 0)
-#    
-#    #Grating
-#    d = p[9]  #blaze period in microns  
-#    sphi = np.radians(p[6])   
-#    stheta = np.radians(p[7]) 
-#    s = np.array([np.cos(sphi)*np.sin(stheta),np.sin(sphi)*np.sin(stheta),np.cos(stheta)]) #component perp to grooves   
-#    #Now find two vectors (a and b) perpendicular to s
-#    a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
-#    b = np.cross(a,s)
-#    #Create l from given alpha using a and b as basis
-#    alpha = np.radians(p[8]) 
-#    l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
-#    Optics = np.append(Optics, [[s,l,OpticsRGrating,'air',d]], 0)
-#
-#    #Prism surface 3 (surf #2 on return)
-#    n4=-n2
-#    Optics = np.append(Optics,[[n4,[0,0,0],OpticsBoundary,'nkzfs8',0]], 0)
-#    
-#    #Prism surface 4 (surf #1 on return)
-#    n5=-n1     
-#    Optics = np.append(Optics, [[n5,[0,0,0],OpticsBoundary,'air',0]], 0)
-#
-#    
-#    #Initial beam
-#    uiphi = np.radians(p[0])              #'Longitude' with the x axis as 
-#    uitheta = np.radians(p[1])            #Latitude with the y axis the polar axis
-#    Beams=np.array([np.cos(uiphi)*np.sin(uitheta),np.sin(uiphi)*np.sin(uitheta),np.cos(uitheta)])
-#       
-#    #Focal length
-#    fLength = p[10]
-#    
-    #############################################################
-    
+       
     #Distortion np.array
     K = [] #p[11]
        
@@ -189,26 +143,23 @@ def do_ccd_map(SEDMap, p = [272.31422902, 90.7157937, 59.6543365, 90.21334551, 8
      
     #hack for RHEA. Needs manual reverse prism on beam return. todo
     Optics[4][0]=-Optics[0][0]
-    Optics[3][0]=-Optics[1][0]
-#    
+    Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
-#    CCDX2, CCDY2, CCDLambda2, CCDIntensity2, CCDOrder2 = wt.ccd_loop(SEDMap, Beams, Optics2, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
-    print CCDX, CCDY
     #Distort if any distortion data present
     if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='fits/c_noFlat_sky_0deg_460_median.fits'):
+def do_plot_ccd_map(CCDMap, CalibPoints=False, Labels=False, BackImage=FITS_DIR+'c_noFlat_sky_0deg_460_median.fits'):
         
-        CCDX = CCDMap[CCDMapX] 
-        CCDY = CCDMap[CCDMapY] 
-        CCDLambda = CCDMap[CCDMapLambda] 
-        CCDIntensity= CCDMap[CCDMapIntensity] 
-        CCDnOrder= CCDMap[CCDMapOrder] 
+        CCDX = CCDMap[CCD_MAP_X] 
+        CCDY = CCDMap[CCD_MAP_Y] 
+        CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
+        CCDIntensity= CCDMap[CCD_MAP_INTENSITY] 
+        CCDOrder= CCDMap[CCD_MAP_ORDER] 
 
         colorTable = np.array((wt.wav2RGB(CCDLambda, CCDIntensity))) 
         
@@ -275,7 +226,27 @@ def do_plot(CCDMap, CalibPoints=False, Labels=False, BackImage='fits/c_noFlat_sk
         
         plt.show()
 
-def do_find_fit(SEDMap, calibDataFileName, p_try=[271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
+def do_plot_sed_map(SEDMap, point_density=1):
+        
+        SEDMap = SEDMap[:,::point_density]
+        
+        colorTable = np.array((wt.wav2RGB(SEDMap[SEDMapLambda], SEDMap[SEDMapIntensity]))) 
+        bar_width = (max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / SEDMap.size
+
+         
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111, axisbg='black')
+        ax1.bar(SEDMap[SEDMapLambda],SEDMap[SEDMapIntensity], width=bar_width, color=colorTable , edgecolor='none')
+        
+        plt.ylabel('Intensity')
+        plt.xlabel('Wavelength ($\mu$m)')
+        plt.axis([min(SEDMap[SEDMapLambda]) ,max(SEDMap[SEDMapLambda])*1.01 ,0 , max(SEDMap[SEDMapIntensity])])
+
+        plt.title('Spectral Energy Distribuition')        
+        
+        plt.show()
+
+def do_find_fit(SEDMap, calibDataFileName, p_try,factor_try=1 ,diag_try=np.ones(11)):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -310,7 +281,7 @@ def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True)
     Parameters
     ----------
     image_filename : string
-        Name of the calibration image 
+        Name of the calibration  (fits) 
 
     analyze : boolean
         Run the analysis (reads the last output otherwise)
@@ -324,10 +295,9 @@ def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True)
     '''      
     if analyze: ic.analyze_image_sex(image_filename, output_filename)
     
-    #Loads from the iraf output file
+    #Loads from the output file
     image_map_x, image_map_y = wt.load_image_map_sex(image_filename, output_filename)
     
-    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
     
     #Create SEDMap from Mercury emission
     SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
@@ -336,32 +306,33 @@ def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = do_ccd_map(SEDMap)  
     
     #Create list of 
-    #todo turn this into a 2D array calculation
+    #todo turn this into an array calculation
+    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
     for i in range(len(image_map_x)):
-    
+        
         distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
-        closest_point=np.min(distance_array)
-        closest_point_index=np.where(distance_array==closest_point)[0][0]       
+        closest_point = np.min(distance_array)
+        closest_point_index = np.where(distance_array==closest_point)[0][0]       
         image_map_lambda[i] = CCDLambda[closest_point_index]
         
-        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
-        lambda_closest_point=np.min(lambda_distance)
-        lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
+        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+        lambda_closest_point = np.min(lambda_distance)
+        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
         image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
     #Create output file with calibration data
     #todo, add sigmas    
-    f = open(output_filename,'w')
+    f = open(TEMP_DIR + output_filename,'w')
     for i in range(len(image_map_x)):
-        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
+        out_string = str(image_map_x[i]) + ' ' + str(image_map_y[i]) + ' ' + str(image_map_lambda_match[i]) + ' 1 1\n'
         f.write(out_string) 
     f.close()
     
     #Plot (probably remove)
-    hdulist = pyfits.open(image_filename)
+    hdulist = pyfits.open(FITS_DIR+image_filename)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-    im = pyfits.getdata(image_filename)  
+    im = pyfits.getdata(FITS_DIR+image_filename)  
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
@@ -373,75 +344,23 @@ def do_read_calib_sex(output_filename, image_filename='test.fits', analyze=True)
     
     return
 
-def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
-    '''
-    Extracts peaks with daofind
-    Imports found points
-    Plots found points on image
-       
-    Parameters
-    ----------
-    image_filename : string
-        Name of the calibration image 
+def do_full_extract_order(CCDMap, nOrder, image):
+    
+    CCDX = CCDMap[CCD_MAP_X]
+    CCDY = CCDMap[CCD_MAP_Y]
+    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
+    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
+    CCDOrder=CCDMap[CCD_MAP_ORDER]
 
-    analyze : boolean
-        Run the pyraf analysis (reads the last output otherwise)
-
-    Returns
-    -------
-    nottin
-      
-    Notes
-    -----
-    '''      
-    if analyze: ic.analyze_image(image_filename)
+    xPlot = CCDX[CCDOrder==nOrder]
+    yPlot = CCDY[CCDOrder==nOrder]
+    LambdaPlot = CCDLambda[CCDOrder==nOrder]
     
-    #Loads from the iraf output file
-    image_map_x, image_map_y = wt.load_image_map()
+    fLambda = interpolate.interp1d(yPlot, LambdaPlot)
+    fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
     
-    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
+    newX, newY, newLambdas = wt.calculate_from_Y(CCDY, fX, fLambda)
     
-    #Create SEDMap from Mercury emission
-    SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    flux = wt.extract_order(newX, newY, image)
     
-    #Create the model based on default parameters
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = do_ccd_map(SEDMap)  
-    
-    #Create list of 
-    #todo turn this into a 2D array calculation
-    for i in range(len(image_map_x)):
-    
-        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
-        closest_point=np.min(distance_array)
-        closest_point_index=np.where(distance_array==closest_point)[0][0]       
-        image_map_lambda[i] = CCDLambda[closest_point_index]
-        
-        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
-        lambda_closest_point=np.min(lambda_distance)
-        lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
-        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
-    
-    #Create output file with calibration data
-    #todo, add sigmas    
-    f = open(output_filename,'w')
-    for i in range(len(image_map_x)):
-        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
-        f.write(out_string) 
-    f.close()
-    
-    #Plot (probably remove)
-    hdulist = pyfits.open(image_filename)
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
-    im = pyfits.getdata(image_filename)  
-    fig = plt.figure()
-    ax1 = fig.add_subplot(111)
-    plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
-    plt.set_cmap(cm.Greys_r)
-    ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
-    plt.title(str(len(image_map_x))+' point(s) found')
-    plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
-    plt.show()
-    
-    return
-
+    return flux, newLambdas
