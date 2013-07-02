@@ -28,7 +28,31 @@ def read_p(specFileName='defaul_spec.xml'):
 
     return p
 
+def write_p(p, specFileName='defaul_spec.xml'):
+    
+    p=np.zeros(11)
+    
+    #todo backup prev_xml_file
+    xmldoc = minidom.parse('spectrographs/'+specFileName)
+    
+    
+#    optElements = xmldoc.getElementsByTagName('optical_element') 
+    #print itemlist[0].attributes['name'].value
+    
+    spectrograph=xmldoc.childNodes[0]
+    for specElement in spectrograph.childNodes:
+        if specElement.nodeType==1:
+            if specElement.hasAttribute('param'): 
+                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+            for Element in specElement.childNodes:   
+                        if Element.nodeType==1:    
+                            if specElement.hasAttribute('param'): 
+                                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+                            for child in Element.childNodes:
+                                if ((child.nodeType==1) and child.hasAttribute('param')):
+                                    p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
 
+    return p
 def read_all(specFileName='default_spec.xml'):
     
     p=np.zeros(11)

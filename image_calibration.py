@@ -7,7 +7,8 @@ import subprocess
 
 def analyze_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
       
-    os_command = 'sex '+FITS_DIR+image_filename+' -c '+SPEC_DIR+'rhea.sex -CATALOG_NAME '+TEMP_DIR+image_map_filename
+    os_command = 'sex ' + FITS_DIR + image_filename + ' -c ' + SPEC_DIR + 'rhea.sex'
+    os_command += ' -CATALOG_NAME ' + TEMP_DIR + image_map_filename
     proc = subprocess.Popen([os_command,SEXTRACTOR_DIR], stdout=subprocess.PIPE, shell=True)
     out, err_result = proc.communicate()
 

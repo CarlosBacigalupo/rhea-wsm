@@ -162,15 +162,29 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             
     return v, isValid
 
-def identify_image_map_lambda(image_map_x, image_map_y, back_image):
+def identify_image_map_lambda(SEDMap, CCDX, CCDY, CCDLambda, image_map_x, image_map_y):
+    #todo turn this into a full array calculation
+    image_map_lambda = np.zeros(len(image_map_x))
     
-    plot(image_map_x,image_map_y)
+    for i in range(len(image_map_x)):
+        
+        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        closest_point = np.min(distance_array)
+        closest_point_index = np.where(distance_array==closest_point)[0][0]       
+        image_map_lambda[i] = CCDLambda[closest_point_index]
+        
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+#        lambda_closest_point = np.min(lambda_distance)
+#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
+#        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    
+    return image_map_lambda
 
-def load_image_map_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
-    image_map_x=[]
+def load_image_map_sex(image_map_filename='calib_out.txt'):
+    image_map_x=image_map_y=[]
 
-    try: image_map_file = open(TEMP_DIR+image_map_filename)
-    except Exception: return 'ERROR' # <-- change this to returning a number
+    try: image_map_file = open(TEMP_DIR + image_map_filename)
+    except Exception: return [],[]
     image_map_file_temp = image_map_file.readlines()
 
     for lines in image_map_file_temp:
@@ -180,11 +194,16 @@ def load_image_map_sex(image_filename='test.fits', image_map_filename='image_map
             if len(image_map_x)==0:
                 image_map_x = np.array([float(linetemp[0])])
                 image_map_y = np.array([float(linetemp[1])])
+                image_map_sigx = np.array([float(linetemp[3])])
+                image_map_sigy = np.array([float(linetemp[3])])
+
             else:
                 image_map_x = np.append(image_map_x,[float(linetemp[0])],0)
                 image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
+                image_map_sigx = np.append(image_map_sigx,[float(linetemp[3])],0)
+                image_map_sigy = np.append(image_map_sigy,[float(linetemp[3])],0)
                 
-    return image_map_x, image_map_y
+    return image_map_x, image_map_y, image_map_sigx, image_map_sigy 
     
 def Intensity(Lambda, minLambda, maxLambda):
     '''
@@ -384,25 +403,12 @@ def gauss(x, p):
     # p[0]==mean, p[1]==stdev
     return 1.0/(p[1]*np.sqrt(2*np.pi))*np.exp(-(x-p[0])**2/(2*p[1]**2))
 
-def read_calibration_data(calibrationFile):
+def read_full_calibration_data(calibration_data_filename):
     '''
     Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
-
-    OLD CODE:
-    CalibrationMap = np.array([0,0,0,0,0])
-     
-    for line in open(calibrationFile):
-        x = float(str(line).split()[0]) #x
-        y = float(str(line).split()[1]) #y
-        Lambda = float(str(line).split()[2]) #Wavelength
-        xSig = float(str(line).split()[3]) #xSig
-        ySig = float(str(line).split()[4]) #ySig
-        CalibrationMap = np.vstack((CalibrationMap,np.array([x,y,Lambda,xSig,ySig])))
-    
-    CalibrationMap=CalibrationMap[1:,]  
     '''
 
-    CalibrationMap=np.loadtxt(calibrationFile)
+    CalibrationMap=np.loadtxt(TEMP_DIR + calibration_data_filename)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
 def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
@@ -445,7 +451,7 @@ def fit_errors(p, args):
     
     SEDMap = args[0]
     calibDataFileName = args[1]
-    x,y,waveList,xSig,ySig = read_calibration_data(calibDataFileName)
+    x,y,waveList,xSig,ySig = read_full_calibration_data(calibDataFileName)
 
     hdulist = pyfits.open('test.fits')
     imWidth = hdulist[0].header['NAXIS1']
