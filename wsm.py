@@ -153,7 +153,7 @@ def do_ccd_map(SEDMap):
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_find_fit(SEDMap, calibration_data_filename, p_try,factor_try=1 ,diag_try=np.ones(11)):
+def do_find_fit(SEDMap, calibration_data_filename, p_try, factor_try=1 ,diag_try = []):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -174,7 +174,8 @@ def do_find_fit(SEDMap, calibration_data_filename, p_try,factor_try=1 ,diag_try=
     #x,y, wavelist are the positions of the peaks in calibrationFile.
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
-
+    if diag_try==[]: diag_try = np.ones(len(p_try))
+    
     fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, calibration_data_filename], full_output=True, factor=factor_try, diag=diag_try)
 
     return fit

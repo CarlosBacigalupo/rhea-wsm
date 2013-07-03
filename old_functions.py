@@ -585,7 +585,6 @@ def find_brightest_star(readinfile):
                 starsharp = float(linetemp[3])
     return [starmag, xpixel, ypixel, starsharp]
 
-
 def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     '''
     Extracts peaks with daofind
@@ -658,4 +657,29 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     
     return
 
+def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,   89.83000496,   89.37002499,   89.79999531,   68.03002976,   64.9399939,     1.15998754,   31.52736851,  200.00000005],factor_try=1,diag_try=[1,1,1,1,1,1,1,1,1,.1,1]):
+    '''
+    Wrapper for reading the calibration file, and launching the fitting function
+       
+    Parameters
+    ----------
+    calibrationFile : string
+        Name of the file with the data from the spectrograph
 
+    Returns
+    -------
+    fit : np np.array
+        1 x 12 np np.array with fitted arguments (p np.array)
+      
+    Notes
+    -----
+    '''  
+    #old mainArgs=['4','0',calibrationFile,'0','0']
+    #x,y, wavelist are the positions of the peaks in calibrationFile.
+    #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
+    #fit is the output, which is the ideal p vector.
+
+    fit = leastsq(main_errors,p_try, args=[4,False,calibrationFile,0,False,False,False,True,'c_noFlat_sky_0deg_460_median.fits',False], full_output=True, factor=factor_try, diag=diag_try)
+
+
+    return fit

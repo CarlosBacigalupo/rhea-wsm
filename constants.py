@@ -38,7 +38,7 @@ OpticsGPeriod=4
 OpticsGBlAngle=5
 
 #File info
-SPEC_DIR='spectrographs/'
-FITS_DIR='fits/'
-TEMP_DIR='out_files/'
-SEXTRACTOR_DIR='/usr/bin/'
+SPEC_DIR = 'spectrographs/'
+FITS_DIR = 'fits/'
+TEMP_DIR = 'out_files/'
+SEXTRACTOR_DIR = '/usr/bin/'

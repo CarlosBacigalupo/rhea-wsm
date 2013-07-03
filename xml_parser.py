@@ -2,12 +2,12 @@ from xml.dom import minidom
 import numpy as np
 from constants import *
 
-def read_p(specFileName='defaul_spec.xml'):
+def read_p(specFileName='default_spec.xml'):
     
     p=np.zeros(11)
     
     
-    xmldoc = minidom.parse('spectrographs/'+specFileName)
+    xmldoc = minidom.parse(SPEC_DIR + specFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -39,20 +39,21 @@ def write_p(p, specFileName='defaul_spec.xml'):
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
     #print itemlist[0].attributes['name'].value
     
-    spectrograph=xmldoc.childNodes[0]
-    for specElement in spectrograph.childNodes:
-        if specElement.nodeType==1:
-            if specElement.hasAttribute('param'): 
-                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
-            for Element in specElement.childNodes:   
-                        if Element.nodeType==1:    
-                            if specElement.hasAttribute('param'): 
-                                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
-                            for child in Element.childNodes:
-                                if ((child.nodeType==1) and child.hasAttribute('param')):
-                                    p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+#    spectrograph=xmldoc.childNodes[0]
+#    for specElement in spectrograph.childNodes:
+#        if specElement.nodeType==1:
+#            if specElement.hasAttribute('param'): 
+#                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+#            for Element in specElement.childNodes:   
+#                        if Element.nodeType==1:    
+#                            if specElement.hasAttribute('param'): 
+#                                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+#                            for child in Element.childNodes:
+#                                if ((child.nodeType==1) and child.hasAttribute('param')):
+#                                    p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+#
+#    return p
 
-    return p
 def read_all(specFileName='default_spec.xml'):
     
     p=np.zeros(11)

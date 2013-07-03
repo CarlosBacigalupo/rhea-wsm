@@ -1,8 +1,10 @@
 import wsm
 from constants import *
 import numpy as np
+import xml_parser as xml
 
-task=3
+
+task=5
 
 if task==1: # Plot solar SED
     a=wsm.do_sed_map(SEDMode = SED_MODE_SOLAR)
@@ -23,6 +25,18 @@ elif task==4: #Calibration plot tests
     wsm.do_plot_sed_map(a)
     b = wsm.do_ccd_map(a)  
     wsm.do_plot_ccd_map(b)
+    
+elif task==5: #Run fitting code
+    a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    p = xml.read_p()
+    p_out = wsm.do_find_fit(a, 'c_Hg_0.6s_corr_out.txt', p)
+    #should write the output p to the xml file after backup
+    
+    
+elif task==6: #extract spectrum
+    a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    b = wsm.do_ccd_map(a)  
+    c = wsm.do_full_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
 
 
 
