@@ -19,8 +19,6 @@ import xml_parser
 import wsmtools as wt
 import image_calibration as ic
 
-
-
 def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, specFile=''): 
 
     '''
@@ -109,7 +107,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
        
     return SEDMap
 
-def do_ccd_map(SEDMap):
+def do_ccd_map(SEDMap, p_try = []):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -140,7 +138,10 @@ def do_ccd_map(SEDMap):
        
     #Reads xml file
     Optics, Beams, fLength, p, stheta = xml_parser.read_all()
-     
+    
+    if p_try != []: p = p_try  #when p comes from a fitting result skips the p read from the xml file
+    
+    
     #hack for RHEA. Needs manual reverse prism on beam return. todo
     Optics[4][0]=-Optics[0][0]
     Optics[3][0]=-Optics[1][0]  
@@ -174,6 +175,7 @@ def do_find_fit(SEDMap, calibration_data_filename, p_try, factor_try=1 ,diag_try
     #x,y, wavelist are the positions of the peaks in calibrationFile.
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
+    
     if diag_try==[]: diag_try = np.ones(len(p_try))
     
     fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, calibration_data_filename], full_output=True, factor=factor_try, diag=diag_try)

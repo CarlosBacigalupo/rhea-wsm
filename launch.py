@@ -4,7 +4,8 @@ import numpy as np
 import xml_parser as xml
 
 
-task=5
+task=4
+
 
 if task==1: # Plot solar SED
     a=wsm.do_sed_map(SEDMode = SED_MODE_SOLAR)
@@ -30,16 +31,20 @@ elif task==5: #Run fitting code
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     p = xml.read_p()
     p_out = wsm.do_find_fit(a, 'c_Hg_0.6s_corr_out.txt', p)
-    #should write the output p to the xml file after backup
-    
+    print p_out
+    xml.write_p(p_out[0])
+        
     
 elif task==6: #extract spectrum
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    wsm.do_plot_sed_map(a)
     b = wsm.do_ccd_map(a)  
+    wsm.do_plot_ccd_map(b)
     c = wsm.do_full_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
 
 
-
+elif task==100: #random stuff
+    xml.write_p_tests([1,1,1,1,1,1,1,1,1,1,1])
 
 
 

@@ -25,6 +25,7 @@ from matplotlib import *
 import image_calibration as ic
 import time
 from optics import *
+import wsm
 
 def ccd_loop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     ''' todo
@@ -412,47 +413,52 @@ def read_full_calibration_data(calibration_data_filename):
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
 def fit_errors(p, args):
-    #main will return these vectors in a random order. 
-    #We assume that there are no rounding errors (probably a hack?)
-    #and will use a floating point == to identify the (x,y) corresponding
-    #to each wavelength input.
-    #NB A much better idea would be to re-write main without vstack but
-    #instead with a neatly created output structure that is defined at the start.
-    #i.e. when going from SEDMap to SEDMapLoop the information on which line in
-    #the input each wavelength came from was lost.
-    #print p
+    '''
+    do_ccd_map will return these vectors in a random order. 
+    We assume that there are no rounding errors (probably a hack?)
+    and will use a floating point == to identify the (x,y) corresponding
+    to each wavelength input.
+    NB A much better idea would be to re-write main without vstack but
+    instead with a neatly created output structure that is defined at the start.
+    i.e. when going from SEDMap to SEDMapLoop the information on which line in
+    the input each wavelength came from was lost.
+    '''
     
     SEDMap = args[0]
     calibration_data_filename = args[1]
-    x,y,waveList,xSig,ySig = read_full_calibration_data(calibration_data_filename)
+    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibration_data_filename)
 
     hdulist = pyfits.open(FITS_DIR + 'test.fits')
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
-    x=x-imWidth/2
-    y=y-imHeight/2
+    #convert model output to CCD coordinates
+    CCDX_c -= imWidth/2
+    CCDY_c -= imHeight/2
     
-    x_model, y_model, Lambda, Intensity, Order = wsm.do_ccd_map(SEDMap, p)
+    CCDX_m, CCDY_m, lambda_m, Intensity, Order = wsm.do_ccd_map(SEDMap, p)
     
     #Loop through the input wavelengths, and find the closest output.
     #The best model fits in x and y (out of 2 options) is called x_best and y_best
-    x_best = x.copy()
-    y_best = y.copy()
-    for k in range(0,len(waveList)):
-        ix, = np.where(waveList[k] == Lambda)
+    x_best = CCDX_c.copy()
+    y_best = CCDY_c.copy()
+    for k in range(0,len(lambda_c)):
+        ix, = np.where(lambda_c[k] == lambda_m)
         if (ix.size == 0):
-         x_best[k]=0
-         y_best[k]=0
+            x_best[k]=0
+            y_best[k]=0
         else:
-         best = ix[np.argmin(np.abs(y_model[ix] - y[k]))]
-         #The following lines have a potential bug because they assume there is only one "best"
-         x_best[k] = x_model[best]
-         y_best[k] = y_model[best]
+            best = ix[np.argmin(np.abs(CCDY_m[ix] - CCDY_c[k]))]
+            #The following lines have a potential bug because they assume there is only one "best"
+            x_best[k] = CCDX_m[best]
+            y_best[k] = CCDY_m[best]
+         
 #    print x_best + 1663
 #    print y_best + 1252
 #    print x_best - x
 #    print y_best - y
 #    print np.hstack([(x_best-x)/xSig,(y_best - y)/ySig])
 
-    return np.hstack([(x_best-x)/xSig,(y_best - y)/ySig]), waveList
+    diff_model_calib = np.hstack([(x_best-CCDX_c)/xSig_c,(y_best - CCDY_c)/ySig_c]) #, lambda_c
+
+    return diff_model_calib
