@@ -4,7 +4,7 @@ import numpy as np
 import xml_parser as xml
 
 
-task=4
+task=5
 
 
 if task==1: # Plot solar SED
@@ -16,24 +16,28 @@ elif task==2: #Create and plot CCD map
     b=wsm.do_ccd_map(a)
     wsm.do_plot_ccd_map(b)
 
-elif task==3: #Read a calibration file
+elif task==3: #Read a calibration fits file, extract centroids and assign wavelengths and uncertainties
+    callibration_file = 'hg_rhea_sample1.fit'
     output_filename = 'Hg_0.6s_corr_out.txt'
-    callibration_file = 'Hg_0.6s_corr.fit'
     wsm.do_read_calibration_file(callibration_file, output_filename)
    
-elif task==4: #Calibration plot tests
+elif task==4: #Calibration points plot
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     wsm.do_plot_sed_map(a)
     b = wsm.do_ccd_map(a)  
     wsm.do_plot_ccd_map(b)
     
-elif task==5: #Run fitting code
+elif task==5: #Run fitting code 
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     p = xml.read_p()
     p_out = wsm.do_find_fit(a, 'c_Hg_0.6s_corr_out.txt', p)
     print p_out
-    xml.write_p(p_out[0])
-        
+    xml.write_p(p_out[0])    
+    a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='c_Hg_0.6s_corr_out.txt')
+    wsm.do_plot_sed_map(a)
+    b = wsm.do_ccd_map(a)  
+    wsm.do_plot_ccd_map(b, backImage='Hg_0.6s_corr.fit')
+   
     
 elif task==6: #extract spectrum
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')

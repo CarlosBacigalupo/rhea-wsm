@@ -81,13 +81,16 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.array([])
-         
-        for line in open(specFile):
-            Lambda = float(str(line).split()[0]) #Wavelength
-            I = float(str(line).split()[1])       #Intensity
-            SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
-
+#        SEDMap = np.array([])
+#         
+#        for line in open(specFile):
+#            Lambda = float(str(line).split()[0]) #Wavelength
+#            I = float(str(line).split()[1])       #Intensity
+#            SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
+#        
+        a=np.loadtxt(TEMP_DIR + specFile).transpose()
+        SEDMap=np.array((a[2],np.ones(len(a[2]))))
+        SEDMap.transpose()
 
     elif SEDMode==SED_MODE_CALIB: #From calibration file
         
@@ -212,7 +215,7 @@ def do_read_calibration_file(calibration_image_filename, output_filename,  analy
     image_map_y -= 2532/2
     
     #Create SEDMap from Mercury emission
-    SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
+    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, specFile='Hg_5lines_double.txt')
     
     #Create the model based on default parameters
     CCDMap = do_ccd_map(SEDMap)  
