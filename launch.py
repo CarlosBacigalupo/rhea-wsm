@@ -18,7 +18,7 @@ elif task==2: #Create and plot CCD map
 
 elif task==3: #Read a calibration fits file, extract centroids and assign wavelengths and uncertainties
     callibration_file = 'hg_rhea_sample1.fit'
-    output_filename = 'Hg_0.6s_corr_out.txt'
+    output_filename = 'hg_rhea_sample1.txt'
     wsm.do_read_calibration_file(callibration_file, output_filename)
    
 elif task==4: #Calibration points plot
@@ -27,18 +27,26 @@ elif task==4: #Calibration points plot
     b = wsm.do_ccd_map(a)  
     wsm.do_plot_ccd_map(b)
     
-elif task==5: #Run fitting code 
-    a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
-    p = xml.read_p()
-    p_out = wsm.do_find_fit(a, 'c_Hg_0.6s_corr_out.txt', p)
-    print p_out
-    xml.write_p(p_out[0])    
-    a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='c_Hg_0.6s_corr_out.txt')
-    wsm.do_plot_sed_map(a)
-    b = wsm.do_ccd_map(a)  
-    wsm.do_plot_ccd_map(b, backImage='Hg_0.6s_corr.fit')
-   
+elif task==5: #Run full fitting code 
+    #wsm.do_plot_sed_map(SEDMap, title='Hg SED raw input')
     
+    #step 1 - Read fits, extract calibration points to c_+output_filename (n x 5 np.array) 
+    calibration_image_filename = 'hg_rhea_sample2.fits'
+    output_filename = 'hg_rhea_sample2.txt'
+    specFileName =  'rhea_v2.xml'
+    wsm.do_read_calibration_file(calibration_image_filename, specFileName, output_filename)
+    
+    #step 2 - find best fit to results extracted
+    SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile='hg_spectrum.txt')    
+    p_out = wsm.do_find_fit(SEDMap, specFileName, calibration_data_filename =  output_filename)      
+    print p_out
+    p_out = p_out[0]
+
+    #step 3 - plot the optimised solution
+    #p_out=np.array([272. , 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684, 65.33694031, 1.19265536, 31.50321471, 199.13548823])
+    CCDMap = wsm.do_ccd_map(SEDMap, specFileName, p_try = p_out)
+    wsm.do_plot_calibration_points(SEDMap, calibration_image_filename, 'c_' + output_filename, CCDMap, labels = False, canvasSize=1, title = 'Calibration points vs Model comparison ')
+
 elif task==6: #extract spectrum
     a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
     wsm.do_plot_sed_map(a)
@@ -48,7 +56,12 @@ elif task==6: #extract spectrum
 
 
 elif task==100: #random stuff
-    xml.write_p_tests([1,1,1,1,1,1,1,1,1,1,1])
+    a=wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile = 'hg_spectrum.txt')
+#    diag_try = [10,1,1,1,1,1,1,1,1,1,1]
+    diag_try = []
+    b = wsm.do_find_fit(a, 'rhea_initial.xml', 'c_hg_rhea_sample1.txt', factor_try = 1.5, diag_try = diag_try)
+    print b
+    print 'Finished'
 
 
 

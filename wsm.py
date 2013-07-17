@@ -9,9 +9,11 @@ import matplotlib.cm as cm
 import bisect as bis
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt     #matlab
-from scipy.optimize.minpack import leastsq #least square package
+from scipy.optimize.minpack import leastsq
+from  scipy.optimize import * #least square package
 from scipy import interpolate #interpolate function
 from astLib import astSED #Astro Libraries           
+import xml_parser as xml
 
 #Custom Packages
 from constants import *
@@ -42,6 +44,9 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
     intNormalize : integer
         If !=0, it normalizes to intNormalize value
         
+    specFile : str
+        File with the SED of the source (used when SEDmode = (SED_MODE_CALIB or SED_MODE_FILE))
+        
     Returns
     -------
     SEDMap : np.array
@@ -53,51 +58,35 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
     if SEDMode==SED_MODE_FLAT: #Flat
         SEDMap = np.array((np.arange(minLambda, maxLambda + deltaLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda + deltaLambda, deltaLambda).size)))
 
-    elif SEDMode==SED_MODE_RANDOM: #Random
-        
-        np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))
-        
-        
+    elif SEDMode==SED_MODE_RANDOM: #Random        
+        np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))    
         SEDMap = np.array([0,0])
         for Lambda in range(minLambda, maxLambda + deltaLambda, deltaLambda):
 #            Intensity=int()
 #            newItem=np.np.array([Lambda,random.random(0.0,1.0)])
-            SEDMap = np.vstack((SEDMap,np.array([Lambda,random.random(0.0,1.0)])))
-            
+            SEDMap = np.vstack((SEDMap,np.array([Lambda,random.random(0.0,1.0)])))     
         SEDMap = SEDMap[1:,]
                  
-    elif SEDMode==SED_MODE_SOLAR: #Solar
-        
+    elif SEDMode==SED_MODE_SOLAR: #Solar   
         sol = astSED.SOL        
-        
         tempA=sol.wavelength.transpose()*1e-4
         tempB=sol.flux.transpose()            
-        SEDMap = np.column_stack((tempA, tempB))    
-        
-        #Remove rows outside the wavelength range
-        SEDMap = SEDMap[SEDMap[:,0]>=minLambda]     
-        SEDMap = SEDMap[SEDMap[:,0]<=maxLambda]     
-        
+        SEDMap = np.array([tempA, tempB])    
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-#        SEDMap = np.array([])
-#         
-#        for line in open(specFile):
-#            Lambda = float(str(line).split()[0]) #Wavelength
-#            I = float(str(line).split()[1])       #Intensity
-#            SEDMap = np.vstack((SEDMap,np.array([Lambda,I])))
-#        
-        a=np.loadtxt(TEMP_DIR + specFile).transpose()
-        SEDMap=np.array((a[2],np.ones(len(a[2]))))
-        SEDMap.transpose()
-
-    elif SEDMode==SED_MODE_CALIB: #From calibration file
+        SEDMap = np.loadtxt(TEMP_DIR + specFile, unpack=True)
         
-        a=np.loadtxt(TEMP_DIR+specFile).transpose()
+    elif SEDMode==SED_MODE_CALIB: #From calibration file
+        a=np.loadtxt(TEMP_DIR + specFile, unpack=True)
         SEDMap=np.array((a[2],np.ones(len(a[2]))))
-        SEDMap.transpose()
-
+#        SEDMap.transpose()
+                
+                
+    #Remove rows outside the wavelength range
+    SEDMap = np.array([SEDMap[0][SEDMap[0]>=minLambda],SEDMap[1][SEDMap[0]>=minLambda]])     
+    SEDMap = np.array([SEDMap[0][SEDMap[0]<=maxLambda],SEDMap[1][SEDMap[0]<=maxLambda]])     
+                
                 
     #Normalize the intensity  
     if intNormalize!=0:    
@@ -110,7 +99,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
        
     return SEDMap
 
-def do_ccd_map(SEDMap, p_try = []):
+def do_ccd_map(SEDMap ,specFileName, p_try = []):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -140,9 +129,9 @@ def do_ccd_map(SEDMap, p_try = []):
     K = [] #p[11]
        
     #Reads xml file
-    Optics, Beams, fLength, p, stheta = xml_parser.read_all()
-    
-    if p_try != []: p = p_try  #when p comes from a fitting result skips the p read from the xml file
+    Optics, Beams, fLength, p, stheta = xml_parser.read_all(specFileName, p_try)
+#    print p_try
+#    if p_try != []: p = p_try  #when p comes from a fitting result overwrites the p read from the xml file
     
     
     #hack for RHEA. Needs manual reverse prism on beam return. todo
@@ -157,7 +146,7 @@ def do_ccd_map(SEDMap, p_try = []):
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_find_fit(SEDMap, calibration_data_filename, p_try, factor_try=1 ,diag_try = []):
+def do_find_fit(SEDMap, specFileName, calibration_data_filename, p_try = [], factor_try=1 ,diag_try = []):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -179,13 +168,14 @@ def do_find_fit(SEDMap, calibration_data_filename, p_try, factor_try=1 ,diag_try
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
     
+    if p_try==[]: p_try = xml.read_p(specFileName)
     if diag_try==[]: diag_try = np.ones(len(p_try))
     
-    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, calibration_data_filename], full_output=True, factor=factor_try, diag=diag_try)
+    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specFileName, calibration_data_filename], full_output=True)#, factor=factor_try, diag=diag_try)
 
     return fit
 
-def do_read_calibration_file(calibration_image_filename, output_filename,  analyze=True):
+def do_read_calibration_file(calibration_image_filename, specFileName, output_filename,  analyse=True):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -206,19 +196,19 @@ def do_read_calibration_file(calibration_image_filename, output_filename,  analy
     Notes
     -----
     '''      
-    if analyze: ic.analyze_image_sex(calibration_image_filename, output_filename)
+    if analyse: ic.analyse_image_sex(calibration_image_filename, output_filename)
     
     #Loads from calibration output file
     image_map_x, image_map_y, image_map_sigx, image_map_sigy = wt.load_image_map_sex(output_filename)
     if image_map_x == []: return
-    image_map_x -= 3352/2
+    image_map_x -= 3352/2 #todo get these values from global variables
     image_map_y -= 2532/2
     
     #Create SEDMap from Mercury emission
-    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, specFile='Hg_5lines_double.txt')
+    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, specFile='hg_spectrum.txt')
     
     #Create the model based on default parameters
-    CCDMap = do_ccd_map(SEDMap)  
+    CCDMap = do_ccd_map(SEDMap, specFileName)  
     
     #Create output file with calibration data
     f = open(TEMP_DIR + 'c_' + output_filename,'w')
@@ -227,7 +217,7 @@ def do_read_calibration_file(calibration_image_filename, output_filename,  analy
         f.write(out_string) 
     f.close()
        
-    do_plot_calibration_points(SEDMap, calibration_image_filename, 'c_' + output_filename, CCDMap, labels = False, canvasSize=1)
+    do_plot_calibration_points(SEDMap, calibration_image_filename, 'c_' + output_filename, CCDMap, labels = False, canvasSize=1, title = 'Calibration points vs Model comparison ')
     
     #Find wavelength of detected points
     CCDX = CCDMap[CCD_MAP_X] 
@@ -317,12 +307,12 @@ def do_plot_ccd_map(CCDMap, CalibPoints=False, Labels=False, canvasSize=2, backI
         
         plt.show()
 
-def do_plot_sed_map(SEDMap, point_density=1):
+def do_plot_sed_map(SEDMap, title='', point_density=1):
         
         SEDMap = SEDMap[:,::point_density]
         
         colorTable = np.array((wt.wav2RGB(SEDMap[SEDMapLambda], SEDMap[SEDMapIntensity]))) 
-        bar_width = (max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / SEDMap.size
+        bar_width = (max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / 100
 
          
         fig = plt.figure()
@@ -333,11 +323,12 @@ def do_plot_sed_map(SEDMap, point_density=1):
         plt.xlabel('Wavelength ($\mu$m)')
         plt.axis([min(SEDMap[SEDMapLambda]) ,max(SEDMap[SEDMapLambda])*1.01 ,0 , max(SEDMap[SEDMapIntensity])])
 
-        plt.title('Spectral Energy Distribuition')        
+        if title=='':title = 'Spectral Energy Distribuition'
+        plt.title(title)        
         
         plt.show()
 
-def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_filename, CCDMap=[], labels = False, canvasSize=2):
+def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_filename, CCDMap=[], labels = False, canvasSize=2, title=''):
 
         if CCDMap!=[]:
             CCDX = CCDMap[CCD_MAP_X] 
@@ -354,18 +345,20 @@ def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_fil
         hdulist = pyfits.open(FITS_DIR + back_image_filename)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
-        im = pyfits.getdata(FITS_DIR + back_image_filename)  
+        im = pyfits.getdata(FITS_DIR + back_image_filename) 
+        imNorm = ic.normalise_image(im) 
 #        plt.ion()
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
-        plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
+        plt.imshow(imNorm,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
         plt.set_cmap(cm.Greys_r)
         
         ax1.scatter(image_map_x, image_map_y ,s=40, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
         if CCDMap!=[]: ax1.scatter(CCDX, CCDY ,s=40, color="blue" , marker='o', alpha = 0.5, label='Model Data')
         
         plt.legend()
-        plt.title(str(len(image_map_x))+' point(s) found')
+        if title=='':title = str(len(image_map_x))+' point(s) found in the calibration image'
+        plt.title(title) 
         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
 
         if (labels==True and CCDMap!=[]):

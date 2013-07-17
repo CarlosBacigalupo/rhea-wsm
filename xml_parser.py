@@ -53,15 +53,13 @@ def write_p(p, specFileName='test.xml'):
     f = open(SPEC_DIR + specFileName, 'w')
     xmldoc.writexml(f)
     
-
-    
-def read_all(specFileName='default_spec.xml'):
+def read_all(specFileName, p_in = []):
     
     p=np.zeros(11)
     Optics=np.array([])
     Beams=np.array([])
     
-    xmldoc = minidom.parse('spectrographs/'+specFileName)
+    xmldoc = minidom.parse('spectrographs/' + specFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -73,9 +71,14 @@ def read_all(specFileName='default_spec.xml'):
             
             #pulls p values from the spectrograph level
             if specElement.hasAttribute('param'): 
-                p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+                if p_in==[]:
+                    p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
+                else:
+                    p[int(specElement.attributes.getNamedItem('param').value)] = p_in[int(specElement.attributes.getNamedItem('param').value)]
             
-            #Explores the first level child nodes
+            
+            
+            #Explores the first level child nodes (focal length, beams, optical elements)
             if specElement.nodeName=='focal_length':
                 fLength=float(specElement.firstChild.data)
             
@@ -83,18 +86,28 @@ def read_all(specFileName='default_spec.xml'):
                 for beam in specElement.childNodes:   
                     if beam.nodeType==1:
                         if beam.hasAttribute('param'):
-                            p[int(beam.attributes.getNamedItem('param').value)] = float(beam.firstChild.data)
+                            if p_in==[]:
+                                p[int(beam.attributes.getNamedItem('param').value)] = float(beam.firstChild.data)
+                            else:
+                                p[int(beam.attributes.getNamedItem('param').value)] = p_in[int(beam.attributes.getNamedItem('param').value)]                    
                         for child in beam.childNodes:
                             if child.nodeType==1: 
                                 if child.nodeName=='phi':
-                                    phi=np.radians(float(child.firstChild.data))                                            
+                                    phi=child.firstChild.data                                          
                                 elif child.nodeName=='theta':
-                                    theta=np.radians(float(child.firstChild.data))
+                                    theta=child.firstChild.data
                                                                                                                             
                                 if child.hasAttribute('param'):
-                                    p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
-                        
-                        newBeam=[np.cos(phi)*np.sin(theta),np.sin(phi)*np.sin(theta),np.cos(theta)]
+                                    if p_in==[]:
+                                        p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                    else:
+                                        p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                        if child.nodeName=='phi':
+                                            phi = p_in[int(child.attributes.getNamedItem('param').value)]                                          
+                                        elif child.nodeName=='theta':
+                                            theta = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                
+                        newBeam=[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]
                         
                         if len(Beams)==0:
                             Beams = np.array(newBeam)
@@ -112,15 +125,25 @@ def read_all(specFileName='default_spec.xml'):
                                         if child.nodeName=='medium':
                                             medium=child.firstChild.data
                                         elif child.nodeName=='phi':
-                                            phi=np.radians(float(child.firstChild.data))                                            
+                                            phi=child.firstChild.data                                          
                                         elif child.nodeName=='theta':
-                                            theta=np.radians(float(child.firstChild.data))
+                                            theta=child.firstChild.data
                                                                                                                                     
                                         if child.hasAttribute('param'):
-                                            p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                            if p_in==[]:
+                                                p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                            else:
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                if child.nodeName=='medium':
+                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='phi':
+                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                elif child.nodeName=='theta':
+                                                    theta=p_in[int(child.attributes.getNamedItem('param').value)]
+
                                 
                                 #Build normal vector and update Optics array
-                                n=np.array([np.cos(phi)*np.sin(theta),np.sin(phi)*np.sin(theta),np.cos(theta)])
+                                n=np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))])
 
                                 newOptics = [[n,[0,0,0],OpticsBoundary,medium,0]]
 
@@ -130,24 +153,38 @@ def read_all(specFileName='default_spec.xml'):
                                         if child.nodeName=='medium':
                                             medium=child.firstChild.data
                                         elif child.nodeName=='phi':
-                                            phi=np.radians(float(child.firstChild.data))                                            
+                                            phi=child.firstChild.data                                         
                                         elif child.nodeName=='theta':
-                                            stheta=theta=np.radians(float(child.firstChild.data))  #todo
+                                            stheta=child.firstChild.data
+                                            theta=child.firstChild.data
                                         elif child.nodeName=='alpha':
-                                            alpha=np.radians(float(child.firstChild.data))
+                                            alpha=child.firstChild.data
                                         elif child.nodeName=='bl_period':
                                             bl_period=float(child.firstChild.data)
                                                                                                                                     
                                         if child.hasAttribute('param'):
-                                            p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
-                                
+                                            if p_in==[]:
+                                                p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                            else:
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                if child.nodeName=='medium':
+                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='phi':
+                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                elif child.nodeName=='theta':
+                                                    stheta=theta=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='alpha':
+                                                    alpha=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='bl_period':
+                                                    bl_period=p_in[int(child.attributes.getNamedItem('param').value)]
+                                               
                                 #Build normal and grating vector and update Optics array
-                                s = np.array([np.cos(phi)*np.sin(theta),np.sin(phi)*np.sin(theta),np.cos(theta)]) #component perp to grooves   
+                                s = np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]) #component perp to grooves   
                                 #Now find two vectors (a and b) perpendicular to s:
                                 a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
                                 b = np.cross(a,s)
                                 #Create l from given alpha using a and b as basis
-                                l = np.cos(alpha)*a + np.sin(alpha)*b #component along grooves
+                                l = np.cos(np.radians(float(alpha)))*a + np.sin(np.radians(float(alpha)))*b #component along grooves
                                 
                                 newOptics = [[s,l,OpticsRGrating,'air',bl_period]]
                                     
@@ -158,4 +195,4 @@ def read_all(specFileName='default_spec.xml'):
 
 
 
-    return Optics, Beams, fLength, p, stheta
+    return Optics, Beams, fLength, p, np.radians(float(stheta))
