@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<spectrograph name="RHEA">
+  <focal_length param="10">200</focal_length>
+  <beams>
+    <beam>
+      <phi param="0">270</phi>
+      <theta param="1">90</theta>
+    </beam>
+  </beams>
+  <optical_elements>
+    <optical_element type="boundary">
+      <medium>nkzfs8</medium>
+      <phi param="2">60</phi>
+      <theta param="3">90</theta>
+    </optical_element>
+    <optical_element type="boundary">
+      <medium>air</medium>
+      <phi param="4">90</phi>
+      <theta param="5">90</theta>
+    </optical_element>
+    <optical_element type="RGrating">
+      <phi param="6">70</phi>
+      <theta param="7">65</theta>
+      <alpha param="8">1</alpha>
+      <bl_period param="9">32</bl_period>
+    </optical_element>
+    <optical_element type="boundary">
+      <medium>nkzfs8</medium>
+      <phi param="4">90</phi>
+      <theta param="5">90</theta>
+    </optical_element>
+    <optical_element type="boundary">
+      <medium>air</medium>
+      <phi param="2">60</phi>
+      <theta param="3">90</theta>
+    </optical_element>
+  </optical_elements>
+</spectrograph>
