@@ -42,7 +42,7 @@ def n(Lambda, medium='air', t=18, p=101325):
 
     return n
 
-def distort( inX, inY, K=[0], Xc=0 , Yc=0):        
+def distort( inX, inY, K=0, Xc=0 , Yc=0):        
     '''
     Transforms coordinate values based on Brown's 1966 model.
        
@@ -55,9 +55,9 @@ def distort( inX, inY, K=[0], Xc=0 , Yc=0):
     K : np np.array
         1 x n np.array of distortion factors.
         The length of the np.array determines the order of the polynomial. 
-    Xc : integer
+    Xc : float
         X-coord of distortion center.
-    Yc : integer
+    Yc : float
         Y-coord of distortion center.
 
     Returns
@@ -72,20 +72,17 @@ def distort( inX, inY, K=[0], Xc=0 , Yc=0):
     
     '''
     
-#    Denom=1
-#    index=1
-#    r = np.sqrt((inX-np.ones(len(inX))*Xc)**2+(inY-np.ones(len(inY))*Yc)**2)
-#    
-#    for Kn in K:
-#        Denom += Kn * r**(index*2)
-#        index += 1
-#        
-#    outX = inX / Denom + Xc   
-#    outY = inY / Denom + Yc
+    Delta=1
+    r = np.sqrt((inX-np.ones(len(inX))*Xc)**2+(inY-np.ones(len(inY))*Yc)**2)
+    r /= max(r)
+       
+#    for i in np.arange(len(K)):
+#        Delta += K[i] * r**((i+1)*2)
+    Delta += K * r**2
+        
+    outX = (inX-np.ones(len(inX))*Xc)*Delta
+    outY = (inY-np.ones(len(inY))*Yc)*Delta
 
-    outX=inX+(inX-Xc)/160
-    outY=inY
-    
     return outX, outY
 
 def wav2RGB(Lambda, Intensity):
@@ -143,3 +140,72 @@ def wav2RGB(Lambda, Intensity):
         out=np.vstack((out,np.array( [float(SSS*R), float(SSS*G), float(SSS*B)]))) 
         
     return out[1:,]
+
+def fftshift1D(inImage, shift):
+    '''
+    This program shifts an image by sub-pixel amounts.
+       
+    Parameters
+    ----------
+    inImage :  image
+        Input image
+    shift : array
+        (x,y) pixel shift
+    Returns
+    -------
+    outImage : Image
+        Shifted Image
+      
+    Notes
+    -----
+    '''  
+    
+## An example - shift a rough Gaussian by 0.5 pixels.
+#in_image = np.array([[0,0,0.06,0,0],[0,0.25,0.5,0.25,0],[0.06,0.5,1,0.5,0.06],[0,0.25,0.5,0.25,0],[0,0,0.06,0,0]])
+#out_image = fftshift(in_image,(0,0))
+#print out_image
+
+    ftin = np.fft.fft(inImage)
+    sh = inImage.shape
+    
+    #The following line makes a meshgrid np.array as floats. Not sure if there is a neater way.
+    xy = np.mgrid[0:sh[0]] + 0.0
+    xy[:] = (((xy[0,:] + sh[0]/2) % sh[0]) - sh[0]/2)/float(sh[0])
+    #xy[1,:,:] = (((xy[1,:,:] + sh[1]/2) % sh[1]) - sh[1]/2)/float(sh[1])
+
+    return np.real(np.fft.ifft(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1])))) 
+
+def fftshift(inImage, shift):
+
+    '''
+    This program shifts an image by sub-pixel amounts.
+       
+    Parameters
+    ----------
+    inImage :  image
+        Input image
+    shift : array
+        (x,y) pixel shift
+    Returns
+    -------
+    outImage : Image
+        Shifted Image
+      
+    Notes
+    -----
+    '''  
+    
+## An example - shift a rough Gaussian by 0.5 pixels.
+#in_image = np.array([[0,0,0.06,0,0],[0,0.25,0.5,0.25,0],[0.06,0.5,1,0.5,0.06],[0,0.25,0.5,0.25,0],[0,0,0.06,0,0]])
+#out_image = fftshift(in_image,(0,0))
+#print out_image
+
+    ftin = np.fft.fft2(inImage)
+    sh = inImage.shape
+    
+    #The following line makes a meshgrid np.array as floats. Not sure if there is a neater way.
+    xy = np.mgrid[0:sh[0],0:sh[1]] + 0.0
+    xy[0,:,:] = (((xy[0,:,:] + sh[0]/2) % sh[0]) - sh[0]/2)/float(sh[0])
+    xy[1,:,:] = (((xy[1,:,:] + sh[1]/2) % sh[1]) - sh[1]/2)/float(sh[1])
+    
+    return np.real(np.fft.ifft2(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1]))))

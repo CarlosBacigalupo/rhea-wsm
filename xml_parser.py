@@ -3,12 +3,12 @@ import numpy as np
 from constants import *
 import os, time
 
-def read_p(specFileName='default_spec.xml'):
+def read_p(specXMLFileName='default_spec.xml'):
     
-    p=np.zeros(11)
+    p=np.zeros(12)
     
     
-    xmldoc = minidom.parse(SPEC_DIR + specFileName)
+    xmldoc = minidom.parse(SPEC_DIR + specXMLFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -29,13 +29,13 @@ def read_p(specFileName='default_spec.xml'):
 
     return p
 
-def write_p(p, specFileName='test.xml'):
+def write_p(p, specXMLFileName='test.xml'):
     
     bkp_time = time.time()
-    os_command = 'cp ' + SPEC_DIR + specFileName + ' ' +  SPEC_DIR + str(bkp_time) + '_' + specFileName
+    os_command = 'cp ' + SPEC_DIR + specXMLFileName + ' ' +  SPEC_BKP_DIR + str(bkp_time) + '_' + specXMLFileName
     os.system(os_command)
     
-    xmldoc = minidom.parse(SPEC_DIR + specFileName)
+    xmldoc = minidom.parse(SPEC_DIR + specXMLFileName)
     
     spectrograph=xmldoc.childNodes[0]
     for specElement in spectrograph.childNodes:
@@ -50,16 +50,17 @@ def write_p(p, specFileName='test.xml'):
                                 if ((child.nodeType==1) and child.hasAttribute('param')):
                                     child.firstChild.data = p[int(child.attributes.getNamedItem('param').value)]                     
     
-    f = open(SPEC_DIR + specFileName, 'w')
+    f = open(SPEC_DIR + specXMLFileName, 'w')
     xmldoc.writexml(f)
     
-def read_all(specFileName, p_in = []):
+def read_all(specXMLFileName, p_in = []):
     
-    p=np.zeros(11)
+    p=np.zeros(12)
     Optics=np.array([])
     Beams=np.array([])
+    Cameras=np.array([])
     
-    xmldoc = minidom.parse('spectrographs/' + specFileName)
+    xmldoc = minidom.parse('spectrographs/' + specXMLFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -81,6 +82,59 @@ def read_all(specFileName, p_in = []):
             #Explores the first level child nodes (focal length, beams, optical elements)
             if specElement.nodeName=='focal_length':
                 fLength=float(specElement.firstChild.data)
+            
+            elif specElement.nodeName=='cameras':
+                for camera in specElement.childNodes:   
+                    if camera.nodeType==1:
+                        if camera.hasAttribute('param'):
+                            if p_in==[]:
+                                p[int(camera.attributes.getNamedItem('param').value)] = float(camera.firstChild.data)
+                            else:
+                                p[int(camera.attributes.getNamedItem('param').value)] = p_in[int(camera.attributes.getNamedItem('param').value)]                    
+                        for child in camera.childNodes:
+                            if child.nodeType==1: 
+                                if child.nodeName=='name':
+                                    name=child.firstChild.data                                          
+                                elif child.nodeName=='width':
+                                    width=child.firstChild.data
+                                elif child.nodeName=='height':
+                                   height=child.firstChild.data
+                                elif child.nodeName=='pSize':
+                                   pSize=child.firstChild.data
+                                elif child.nodeName=='minLambda':
+                                   minLambda=child.firstChild.data
+                                elif child.nodeName=='maxLambda':
+                                   maxLambda=child.firstChild.data
+                                elif child.nodeName=='distortion':
+                                   distortion=child.firstChild.data
+                                                                                                                            
+                                if child.hasAttribute('param'):
+                                    if p_in==[]:
+                                        p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                    else:
+                                        p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                        if child.nodeName=='name':
+                                            name = p_in[int(child.attributes.getNamedItem('param').value)]                                          
+                                        elif child.nodeName=='width':
+                                            width = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='height':
+                                            height = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='pSize':
+                                            pSize = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='minLambda':
+                                            minLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='maxLambda':
+                                            maxLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortion':
+                                            distortion = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                
+                        newCamera=[[name, width, height, pSize, minLambda, maxLambda, distortion]]
+                        
+                        if len(Cameras)==0:
+                            Cameras = np.array(newCamera)
+                        else:
+                            Cameras = np.append(Cameras, newCamera, 0)
+                            
             
             elif specElement.nodeName=='beams':
                 for beam in specElement.childNodes:   
@@ -107,7 +161,7 @@ def read_all(specFileName, p_in = []):
                                         elif child.nodeName=='theta':
                                             theta = p_in[int(child.attributes.getNamedItem('param').value)]   
                                 
-                        newBeam=[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]
+                        newBeam=[[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]]
                         
                         if len(Beams)==0:
                             Beams = np.array(newBeam)
@@ -195,4 +249,4 @@ def read_all(specFileName, p_in = []):
 
 
 
-    return Optics, Beams, fLength, p, np.radians(float(stheta))
+    return Optics, Beams, Cameras, fLength, p, np.radians(float(stheta))

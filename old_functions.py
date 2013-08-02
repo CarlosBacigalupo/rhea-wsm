@@ -585,7 +585,7 @@ def find_brightest_star(readinfile):
                 starsharp = float(linetemp[3])
     return [starmag, xpixel, ypixel, starsharp]
 
-def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
+def do_read_calib(outputFileName, image_filename='test.fits', analyze=True):
     '''
     Extracts peaks with daofind
     Imports found points
@@ -609,9 +609,9 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     if analyze: ic.analyze_image(image_filename)
     
     #Loads from the iraf output file
-    image_map_x, image_map_y = wt.load_image_map()
+    imageMapX, imageMapY = wt.load_image_map()
     
-    image_map_lambda_match = image_map_lambda = np.zeros(len(image_map_x))
+    imageMapLambda_match = imageMapLambda = np.zeros(len(imageMapX))
     
     #Create SEDMap from Mercury emission
     SEDMap = do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
@@ -621,23 +621,23 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     
     #Create list of 
     #todo turn this into a 2D array calculation
-    for i in range(len(image_map_x)):
+    for i in range(len(imageMapX)):
     
-        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
         closest_point=np.min(distance_array)
         closest_point_index=np.where(distance_array==closest_point)[0][0]       
-        image_map_lambda[i] = CCDLambda[closest_point_index]
+        imageMapLambda[i] = CCDLambda[closest_point_index]
         
-        lambda_distance= abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+        lambda_distance= abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
         lambda_closest_point=np.min(lambda_distance)
         lambda_closest_point_index=np.where(lambda_distance==lambda_closest_point)[0][0]
-        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
     #Create output file with calibration data
     #todo, add sigmas    
-    f = open(output_filename,'w')
-    for i in range(len(image_map_x)):
-        out_string=str(image_map_x[i])+' '+str(image_map_y[i])+' '+str(image_map_lambda_match[i])+' 1 1\n'
+    f = open(outputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string=str(imageMapX[i])+' '+str(imageMapY[i])+' '+str(imageMapLambda_match[i])+' 1 1\n'
         f.write(out_string) 
     f.close()
     
@@ -650,8 +650,8 @@ def do_read_calib(output_filename, image_filename='test.fits', analyze=True):
     ax1 = fig.add_subplot(111)
     plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
     plt.set_cmap(cm.Greys_r)
-    ax1.scatter(image_map_x-imWidth/2, -(image_map_y-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
-    plt.title(str(len(image_map_x))+' point(s) found')
+    ax1.scatter(imageMapX-imWidth/2, -(imageMapY-imHeight/2) ,s=40, color="red" , marker='o', alpha = 0.3)
+    plt.title(str(len(imageMapX))+' point(s) found')
     plt.axis([-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
     plt.show()
     

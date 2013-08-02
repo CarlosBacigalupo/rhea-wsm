@@ -27,7 +27,7 @@ import time
 from optics import *
 import wsm
 
-def ccd_loop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+def ccd_loop(SEDMap, Beam, Optics, Camera, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -58,6 +58,8 @@ def ccd_loop(SEDMap, Beam, Optics, stheta, fLength): #, intNormalize,Interpolate
        
     dataOut=np.zeros(5)
     CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = np.array([])
+    
+    pixelSize = float(Camera[CamerasPSize])
     
     blaze_angle = stheta #Approximately np.arctan(2)
 
@@ -163,44 +165,44 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             
     return v, isValid
 
-def identify_image_map_lambda(SEDMap, CCDX, CCDY, CCDLambda, image_map_x, image_map_y):
+def identify_imageMapLambda(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
     #todo turn this into a full array calculation
-    image_map_lambda = np.zeros(len(image_map_x))
+    imageMapLambda = np.zeros(len(imageMapX))
     
-    for i in range(len(image_map_x)):
+    for i in range(len(imageMapX)):
         
-        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
         closest_point = np.min(distance_array)
         closest_point_index = np.where(distance_array==closest_point)[0][0]       
-        image_map_lambda[i] = CCDLambda[closest_point_index]
+        imageMapLambda[i] = CCDLambda[closest_point_index]
         
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
 #        lambda_closest_point = np.min(lambda_distance)
 #        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
-    return image_map_lambda
+    return imageMapLambda
 
-def find_closest_point_list(CCDX, CCDY, CCDLambda, image_map_x, image_map_y):
+def find_closest_point_list(CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
     #todo turn this into a full array calculation
-    image_map_lambda = np.zeros(len(image_map_x))
+    imageMapLambda = np.zeros(len(imageMapX))
     
-    for i in range(len(image_map_x)):
+    for i in range(len(imageMapX)):
         
-        distance_array = np.sqrt((CCDX-image_map_x[i])**2+(CCDY-image_map_y[i])**2)
+        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
         closest_point = np.min(distance_array)
         closest_point_index = np.where(distance_array==closest_point)[0][0]       
-        image_map_lambda[i] = CCDLambda[closest_point_index]
+        imageMapLambda[i] = CCDLambda[closest_point_index]
         
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
 #        lambda_closest_point = np.min(lambda_distance)
 #        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
-    return image_map_lambda
+    return imageMapLambda
 
 def load_image_map_sex(image_map_filename='calib_out.txt'):
-    image_map_x=image_map_y=[]
+    imageMapX=imageMapY=[]
 
     try: image_map_file = open(TEMP_DIR + image_map_filename)
     except Exception: return [],[]
@@ -210,19 +212,19 @@ def load_image_map_sex(image_map_filename='calib_out.txt'):
         if lines[0][0] != '#': 
             linetemp = str.split(lines)
 
-            if len(image_map_x)==0:
-                image_map_x = np.array([float(linetemp[0])])
-                image_map_y = np.array([float(linetemp[1])])
+            if len(imageMapX)==0:
+                imageMapX = np.array([float(linetemp[0])])
+                imageMapY = np.array([float(linetemp[1])])
                 image_map_sigx = np.array([float(linetemp[3])])
                 image_map_sigy = np.array([float(linetemp[3])])
 
             else:
-                image_map_x = np.append(image_map_x,[float(linetemp[0])],0)
-                image_map_y = np.append(image_map_y,[float(linetemp[1])],0)
+                imageMapX = np.append(imageMapX,[float(linetemp[0])],0)
+                imageMapY = np.append(imageMapY,[float(linetemp[1])],0)
                 image_map_sigx = np.append(image_map_sigx,[float(linetemp[3])],0)
                 image_map_sigy = np.append(image_map_sigy,[float(linetemp[3])],0)
                 
-    return image_map_x, image_map_y, image_map_sigx, image_map_sigy 
+    return imageMapX, imageMapY, image_map_sigx, image_map_sigy 
     
 def Intensity(Lambda, minLambda, maxLambda):
     '''
@@ -333,75 +335,6 @@ def find_nearest(array,value):
     idx=(np.abs(array-value)).argmin()
     return array[idx], idx
 
-def fftshift1D(inImage, shift):
-    '''
-    This program shifts an image by sub-pixel amounts.
-       
-    Parameters
-    ----------
-    inImage :  image
-        Input image
-    shift : array
-        (x,y) pixel shift
-    Returns
-    -------
-    outImage : Image
-        Shifted Image
-      
-    Notes
-    -----
-    '''  
-    
-## An example - shift a rough Gaussian by 0.5 pixels.
-#in_image = np.array([[0,0,0.06,0,0],[0,0.25,0.5,0.25,0],[0.06,0.5,1,0.5,0.06],[0,0.25,0.5,0.25,0],[0,0,0.06,0,0]])
-#out_image = fftshift(in_image,(0,0))
-#print out_image
-
-    ftin = np.fft.fft(inImage)
-    sh = inImage.shape
-    
-    #The following line makes a meshgrid np.array as floats. Not sure if there is a neater way.
-    xy = np.mgrid[0:sh[0]] + 0.0
-    xy[:] = (((xy[0,:] + sh[0]/2) % sh[0]) - sh[0]/2)/float(sh[0])
-    #xy[1,:,:] = (((xy[1,:,:] + sh[1]/2) % sh[1]) - sh[1]/2)/float(sh[1])
-
-    return np.real(np.fft.ifft(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1])))) 
-
-def fftshift(inImage, shift):
-
-    '''
-    This program shifts an image by sub-pixel amounts.
-       
-    Parameters
-    ----------
-    inImage :  image
-        Input image
-    shift : array
-        (x,y) pixel shift
-    Returns
-    -------
-    outImage : Image
-        Shifted Image
-      
-    Notes
-    -----
-    '''  
-    
-## An example - shift a rough Gaussian by 0.5 pixels.
-#in_image = np.array([[0,0,0.06,0,0],[0,0.25,0.5,0.25,0],[0.06,0.5,1,0.5,0.06],[0,0.25,0.5,0.25,0],[0,0,0.06,0,0]])
-#out_image = fftshift(in_image,(0,0))
-#print out_image
-
-    ftin = np.fft.fft2(inImage)
-    sh = inImage.shape
-    
-    #The following line makes a meshgrid np.array as floats. Not sure if there is a neater way.
-    xy = np.mgrid[0:sh[0],0:sh[1]] + 0.0
-    xy[0,:,:] = (((xy[0,:,:] + sh[0]/2) % sh[0]) - sh[0]/2)/float(sh[0])
-    xy[1,:,:] = (((xy[1,:,:] + sh[1]/2) % sh[1]) - sh[1]/2)/float(sh[1])
-    
-    return np.real(np.fft.ifft2(ftin*np.exp(np.complex(0,-2*np.pi)*(xy[0,:,:]*shift[0] + xy[1,:,:]*shift[1]))))
-
 def calculate_from_Y(Y, fX, fLambda):
     
     newY=np.arange(np.min(Y),np.max(Y)) #Create continuous array from Y       
@@ -422,12 +355,12 @@ def gauss(x, p):
     # p[0]==mean, p[1]==stdev
     return 1.0/(p[1]*np.sqrt(2*np.pi))*np.exp(-(x-p[0])**2/(2*p[1]**2))
 
-def read_full_calibration_data(calibration_data_filename):
+def read_full_calibration_data(calibrationDataFileName):
     '''
     Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
     '''
 
-    CalibrationMap=np.loadtxt(TEMP_DIR + calibration_data_filename)
+    CalibrationMap=np.loadtxt(TEMP_DIR + calibrationDataFileName)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
 def fit_errors(p, args):
@@ -443,20 +376,20 @@ def fit_errors(p, args):
     '''
     
     SEDMap = args[0]
-    specFileName = args[1]
-    calibration_data_filename = args[2]
-    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibration_data_filename) #reads calibration points coordinates
-
-    hdulist = pyfits.open(FITS_DIR + 'hg_rhea_sample1.fits')
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
+    specXMLFileName = args[1]
+    calibrationDataFileName = args[2]
+    activeCameraIndex = args[3]    
     
-    #convert model output to CCD coordinates
+    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
+
+    CCDX_m, CCDY_m, lambda_m, Intensity, Order = wsm.do_ccd_map(SEDMap, specXMLFileName, activeCameraIndex, p_try = p)
+    
+##    convert model output to CCD coordinates
+#    imWidth = Cameras[activeCameraIndex][CamerasWidth]
+#    imHeight = Cameras[activeCameraIndex][CamerasHeight]
 #    CCDX_c -= imWidth/2
 #    CCDY_c -= imHeight/2
-    
-    CCDX_m, CCDY_m, lambda_m, Intensity, Order = wsm.do_ccd_map(SEDMap, specFileName, p_try = p)
-    
+        
     #Loop through the input wavelengths, and find the closest output.
     #The best model fits in x and y (out of 2 options) is called x_best and y_best
     x_best = CCDX_c.copy()
@@ -496,8 +429,8 @@ def fit_errors_quad(p,args):
     
     SEDMap = args[0]
     specFileName = args[1]
-    calibration_data_filename = args[2]
-    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibration_data_filename) #reads calibration points coordinates
+    calibrationDataFileName = args[2]
+    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
 
     hdulist = pyfits.open(FITS_DIR + 'hg_rhea_sample1.fits')
     imWidth = hdulist[0].header['NAXIS1']
@@ -525,10 +458,10 @@ def find_closest_points(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
         diff_list[0][i] = CCDX_m[closest_point_index]-CCDX_c[i]
         diff_list[1][i] = CCDY_m[closest_point_index]-CCDY_c[i]
         
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
 #        lambda_closest_point = np.min(lambda_distance)
 #        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
     return diff_list[0], diff_list[1]
 
@@ -543,9 +476,9 @@ def find_distance_array(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
 #        closest_point_index = np.where(distance_array==closest_point)[0][0]       
         diff_list[i] = closest_point 
         
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-image_map_lambda[i])
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
 #        lambda_closest_point = np.min(lambda_distance)
 #        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        image_map_lambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
     return diff_list

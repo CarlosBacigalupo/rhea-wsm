@@ -20,8 +20,9 @@ from constants import *
 import xml_parser
 import wsmtools as wt
 import image_calibration as ic
+from optics import distort
 
-def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, specFile=''): 
+def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName=''): 
 
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
@@ -75,10 +76,10 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.loadtxt(TEMP_DIR + specFile, unpack=True)
+        SEDMap = np.loadtxt(TEMP_DIR + spectrumFileName, unpack=True)
         
     elif SEDMode==SED_MODE_CALIB: #From calibration file
-        a=np.loadtxt(TEMP_DIR + specFile, unpack=True)
+        a=np.loadtxt(TEMP_DIR + spectrumFileName, unpack=True)
         SEDMap=np.array((a[2],np.ones(len(a[2]))))
 #        SEDMap.transpose()
                 
@@ -99,7 +100,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
        
     return SEDMap
 
-def do_ccd_map(SEDMap ,specFileName, p_try = []):
+def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -129,7 +130,7 @@ def do_ccd_map(SEDMap ,specFileName, p_try = []):
     K = [] #p[11]
        
     #Reads xml file
-    Optics, Beams, fLength, p, stheta = xml_parser.read_all(specFileName, p_try)
+    Optics, Beams, Cameras, fLength, p, stheta = xml_parser.read_all(specXMLFileName, p_try)
 #    print p_try
 #    if p_try != []: p = p_try  #when p comes from a fitting result overwrites the p read from the xml file
     
@@ -139,14 +140,14 @@ def do_ccd_map(SEDMap ,specFileName, p_try = []):
     Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort if any distortion data present
-    if len(K)!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
+#    if K!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_find_fit(SEDMap, specFileName, calibration_data_filename, p_try = [], factor_try=1 ,diag_try = []):
+def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factor_try=1 ,diag_try = []):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -168,14 +169,14 @@ def do_find_fit(SEDMap, specFileName, calibration_data_filename, p_try = [], fac
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
     
-    if p_try==[]: p_try = xml.read_p(specFileName)
+    if p_try==[]: p_try = xml.read_p(specXMLFileName)
     if diag_try==[]: diag_try = np.ones(len(p_try))
     
-    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specFileName, calibration_data_filename], full_output=True)#, factor=factor_try, diag=diag_try)
+    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex], full_output=True)#, factor=factor_try, diag=diag_try)
 
     return fit
 
-def do_read_calibration_file(calibration_image_filename, specFileName, output_filename,  analyse=True):
+def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName,  booAnalyse=True, booPlotInitialPoints = False, booPlotFinalPoints = False):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -183,11 +184,17 @@ def do_read_calibration_file(calibration_image_filename, specFileName, output_fi
        
     Parameters
     ----------
-    image_filename : string
-        Name of the calibration  (fits) 
+    calibrationImageFileName : string
+        Name of the calibration file (fits) 
 
-    analyze : boolean
+    specFileName : string
         Run the analysis (reads the last output otherwise)
+        
+    booAnalyse : boolean
+    
+    booPlotInitialPoints : boolean
+
+
 
     Returns
     -------
@@ -196,41 +203,46 @@ def do_read_calibration_file(calibration_image_filename, specFileName, output_fi
     Notes
     -----
     '''      
-    if analyse: ic.analyse_image_sex(calibration_image_filename, output_filename)
+    if booAnalyse: ic.analyse_image_sex(calibrationImageFileName, outputFileName)
     
-    #Loads from calibration output file
-    image_map_x, image_map_y, image_map_sigx, image_map_sigy = wt.load_image_map_sex(output_filename)
-    if image_map_x == []: return
-    image_map_x -= 3352/2 #todo get these values from global variables
-    image_map_y -= 2532/2
+    #Loads coordinate points from calibration output file
+    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.load_image_map_sex(outputFileName)
+    if imageMapX == []: return
+    imageMapX -= 3352/2 #todo get these values from global variables
+    imageMapY -= 2532/2
     
     #Create SEDMap from Mercury emission
-    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, specFile='hg_spectrum.txt')
+    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt')
     
     #Create the model based on default parameters
-    CCDMap = do_ccd_map(SEDMap, specFileName)  
+    CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
     
     #Create output file with calibration data
-    f = open(TEMP_DIR + 'c_' + output_filename,'w')
-    for i in range(len(image_map_x)):
-        out_string = str(image_map_x[i]) + ' ' + str(image_map_y[i]) + ' 0.0 1 1\n'
+    f = open(TEMP_DIR + 'c_' + outputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
         f.write(out_string) 
     f.close()
-       
-    do_plot_calibration_points(SEDMap, calibration_image_filename, 'c_' + output_filename, CCDMap, labels = False, canvasSize=1, title = 'Calibration points vs Model comparison ')
+    
+    if booPlotInitialPoints:
+        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration points vs Model comparison ')
     
     #Find wavelength of detected points
     CCDX = CCDMap[CCD_MAP_X] 
     CCDY = CCDMap[CCD_MAP_Y] 
     CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    image_map_lambda = wt.identify_image_map_lambda(SEDMap, CCDX, CCDY, CCDLambda, image_map_x, image_map_y)
+    imageMapLambda = wt.identify_imageMapLambda(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY)
     
-    #Create output file with calibration data
-    f = open(TEMP_DIR + 'c_' + output_filename,'w')
-    for i in range(len(image_map_x)):
-        out_string = str(image_map_x[i]) + ' ' + str(image_map_y[i]) + ' ' + str(image_map_lambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
+    #Create final output file with all calibration data
+    f = open(TEMP_DIR + 'c_' + outputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
         f.write(out_string) 
     f.close()
+
+    #Plot detected points with assigned wavelengths
+    if booPlotFinalPoints:
+        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
        
     return
 
@@ -255,7 +267,7 @@ def do_full_extract_order(CCDMap, nOrder, image):
     
     return flux, newLambdas
 
-def do_plot_ccd_map(CCDMap, CalibPoints=False, Labels=False, canvasSize=2, backImage='c_noFlat_sky_0deg_460_median.fits'):
+def do_plot_ccd_map(CCDMap, canvasSize=2, backImage='c_noFlat_sky_0deg_460_median.fits'):
         
         CCDX = CCDMap[CCD_MAP_X] 
         CCDY = CCDMap[CCD_MAP_Y] 
@@ -328,7 +340,7 @@ def do_plot_sed_map(SEDMap, title='', point_density=1):
         
         plt.show()
 
-def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_filename, CCDMap=[], labels = False, canvasSize=2, title=''):
+def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMap=[], booLabels = False, canvasSize=2, title=''):
 
         if CCDMap!=[]:
             CCDX = CCDMap[CCD_MAP_X] 
@@ -338,14 +350,14 @@ def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_fil
             CCDOrder = CCDMap[CCD_MAP_ORDER] 
 
         #Loads from calibration output file
-        image_map_x, image_map_y, image_map_lambda , image_map_xsig , image_map_ysig  = wt.read_full_calibration_data(calibration_data_filename)
-        if image_map_x==[]: return
+        imageMapX, imageMapY, imageMapLambda , imageMapXsig , imageMapYsig  = wt.read_full_calibration_data(calibrationDataFileName)
+        if imageMapX==[]: return
         
         #Plot
-        hdulist = pyfits.open(FITS_DIR + back_image_filename)
+        hdulist = pyfits.open(FITS_DIR + backImageFileName)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
-        im = pyfits.getdata(FITS_DIR + back_image_filename) 
+        im = pyfits.getdata(FITS_DIR + backImageFileName) 
         imNorm = ic.normalise_image(im) 
 #        plt.ion()
         fig = plt.figure()
@@ -353,27 +365,45 @@ def do_plot_calibration_points(SEDMap, back_image_filename, calibration_data_fil
         plt.imshow(imNorm,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
         plt.set_cmap(cm.Greys_r)
         
-        ax1.scatter(image_map_x, image_map_y ,s=40, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
-        if CCDMap!=[]: ax1.scatter(CCDX, CCDY ,s=40, color="blue" , marker='o', alpha = 0.5, label='Model Data')
+        ax1.scatter(imageMapX, imageMapY ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+        if booLabels:
+            fullLabel = [str(imageMapLambda[x]) for x in np.arange(len(imageMapLambda))]
+            
+            for x, y, label in zip(imageMapX, imageMapY, fullLabel ):
+                plt.annotate(
+                    label, 
+                    xy = (x, y), xytext = (0,-25),
+                    textcoords = 'offset points', ha = 'right', va = 'bottom',
+                    bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 1))
+#                    arrowprops = dict(arrowstyle="wedge,tail_width=1.",
+#                                fc=(1, 0, 0), ec=(1., 0, 0),
+#                                patchA=None,
+#                                relpos=(0.2, 0.8),
+#                                connectionstyle="arc3,rad=-0.1"), size=10)
+
+        if CCDMap!=[]: 
+            ax1.scatter(CCDX, CCDY ,s=50, color="blue" , marker='o', alpha = 0.5, label='Model Data')
+
+            if booLabels:
+#                fullLabel = ['('+str(CCDX[x])+', '+str(CCDY[x])+')'+str(CCDLambda[x]) for x in np.arange(len(CCDX))]
+                fullLabel = [str(CCDLambda[x]) for x in np.arange(len(CCDLambda))]
+                
+                for x, y, label in zip(CCDX, CCDY, fullLabel ):
+                    plt.annotate(
+                        label, 
+                        xy = (x, y), xytext = (0,-25),
+                        textcoords = 'offset points', ha = 'right', va = 'bottom',
+                        bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9))
+#                        arrowprops = dict(arrowstyle="wedge,tail_width=1.",
+#                                    fc=(0, 0, 1), ec=(1., 1, 1),
+#                                    patchA=None,
+#                                    relpos=(0.2, 0.8),
+#                                    connectionstyle="arc3,rad=-0.1"), size=7)                
         
         plt.legend()
-        if title=='':title = str(len(image_map_x))+' point(s) found in the calibration image'
+        if title=='':title = str(len(imageMapX))+' point(s) found in the calibration image'
         plt.title(title) 
         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
 
-        if (labels==True and CCDMap!=[]):
-            full_label = ['('+str(CCDX[x])+', '+str(CCDY[x])+')'+str(CCDLambda[x]) for x in np.arange(len(CCDX))]
-            
-            for x, y, label in zip(CCDX, CCDY, full_label ):
-                plt.annotate(
-                    label, 
-                    xy = (x, y), xytext = (0,-20),
-                    textcoords = 'offset points', ha = 'right', va = 'bottom',
-                    bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9),
-                    arrowprops = dict(arrowstyle="wedge,tail_width=1.",
-                                fc=(0, 0, 1), ec=(1., 1, 1),
-                                patchA=None,
-                                relpos=(0.2, 0.8),
-                                connectionstyle="arc3,rad=-0.1"), size=7)
 #        plt.draw()
         plt.show()

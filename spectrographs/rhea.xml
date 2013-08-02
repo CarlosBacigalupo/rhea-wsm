@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <spectrograph name="RHEA">
   <focal_length param="10">199.13548823</focal_length>
   <beams>
@@ -35,4 +35,15 @@
       <theta param="3">90.21334551</theta>
     </optical_element>
   </optical_elements>
+  <cameras>
+    <camera>
+    <name>sbig</name>
+    <width>3352</width>
+    <height>2532</height>
+    <pSize>5.4</pSize>
+    <minLambda>0.3</minLambda>
+    <maxLambda>0.9</maxLambda>
+    <distortion param="11">0.1</distortion>
+    </camera>
+  </cameras>
 </spectrograph>

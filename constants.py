@@ -1,8 +1,11 @@
+global Beams, Optics, Cameras
+
+
+
 #Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
 minOrder=73
 maxOrder=146
 deltaOrder=1
-pixelSize= 5.4 
 
 
 
@@ -37,8 +40,18 @@ OpticsN=3
 OpticsGPeriod=4
 OpticsGBlAngle=5
 
+CamerasName=0
+CamerasWidth=1
+CamerasHeight=2
+CamerasPSize=3
+CamerasMinLambda=4
+CamerasMaxLambda=5
+CamerasDistortion=6
+
+
 #File info
 SPEC_DIR = 'spectrographs/'
+SPEC_BKP_DIR = 'spectrographs/bkp/'
 FITS_DIR = 'fits/'
 TEMP_DIR = 'out_files/'
 SEXTRACTOR_DIR = '/usr/bin/'
