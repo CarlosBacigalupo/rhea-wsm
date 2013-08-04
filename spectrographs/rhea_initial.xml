@@ -1,38 +1,51 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <spectrograph name="RHEA">
-  <focal_length param="10">200</focal_length>
   <beams>
     <beam>
       <phi param="0">270</phi>
-      <theta param="1">90</theta>
+      <theta param="1">90.7157937</theta>
     </beam>
   </beams>
   <optical_elements>
     <optical_element type="boundary">
       <medium>nkzfs8</medium>
-      <phi param="2">60</phi>
-      <theta param="3">90</theta>
+      <phi param="2">59.6543365</phi>
+      <theta param="3">90.21334551</theta>
     </optical_element>
     <optical_element type="boundary">
       <medium>air</medium>
-      <phi param="4">90</phi>
-      <theta param="5">90</theta>
+      <phi param="4">89.67646101</phi>
+      <theta param="5">89.82098015</theta>
     </optical_element>
     <optical_element type="RGrating">
-      <phi param="6">70</phi>
-      <theta param="7">65</theta>
-      <alpha param="8">1</alpha>
-      <bl_period param="9">32</bl_period>
+      <phi param="6">68.0936684</phi>
+      <theta param="7">65.33694031</theta>
+      <alpha param="8">1.19265536</alpha>
+      <bl_period param="9">31.50321471</bl_period>
     </optical_element>
     <optical_element type="boundary">
       <medium>nkzfs8</medium>
-      <phi param="4">90</phi>
-      <theta param="5">90</theta>
+      <phi param="4">89.67646101</phi>
+      <theta param="5">89.82098015</theta>
     </optical_element>
     <optical_element type="boundary">
       <medium>air</medium>
-      <phi param="2">60</phi>
-      <theta param="3">90</theta>
+      <phi param="2">59.6543365</phi>
+      <theta param="3">90.21334551</theta>
     </optical_element>
   </optical_elements>
+  <cameras>
+    <camera>
+    <name>sbig</name>
+    <focalLength param="10">199.13548823</focalLength>
+    <width>3352</width>
+    <height>2532</height>
+    <pSize>5.4</pSize>
+    <minLambda>0.3</minLambda>
+    <maxLambda>0.9</maxLambda>
+    <distortion param="11">0.1</distortion>
+    <distortionCenterX param="12">0</distortionCenterX>
+    <distortionCenterY param="13">0</distortionCenterY>
+    </camera>
+  </cameras>
 </spectrograph>

@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <spectrograph name="RHEA">
-  <focal_length param="10">199.13548823</focal_length>
   <beams>
     <beam>
       <phi param="0">272.31422902</phi>
@@ -38,12 +37,15 @@
   <cameras>
     <camera>
     <name>sbig</name>
+    <focalLength param="10">199.13548823</focalLength>
     <width>3352</width>
     <height>2532</height>
     <pSize>5.4</pSize>
     <minLambda>0.3</minLambda>
     <maxLambda>0.9</maxLambda>
-    <distortion param="11">0.1</distortion>
+    <distortion param="11">1</distortion>
+    <distortionCenterX param="12">0</distortionCenterX>
+    <distortionCenterY param="13">0</distortionCenterY>
     </camera>
   </cameras>
 </spectrograph>

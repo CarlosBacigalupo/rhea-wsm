@@ -1,11 +1,11 @@
 from xml.dom import minidom
 import numpy as np
 from constants import *
-import os, time
+import os, time, sys
 
-def read_p(specXMLFileName='default_spec.xml'):
+def read_p(specXMLFileName):
     
-    p=np.zeros(12)
+    p=np.zeros(14)
     
     
     xmldoc = minidom.parse(SPEC_DIR + specXMLFileName)
@@ -29,7 +29,7 @@ def read_p(specXMLFileName='default_spec.xml'):
 
     return p
 
-def write_p(p, specXMLFileName='test.xml'):
+def write_p(p, specXMLFileName):
     
     bkp_time = time.time()
     os_command = 'cp ' + SPEC_DIR + specXMLFileName + ' ' +  SPEC_BKP_DIR + str(bkp_time) + '_' + specXMLFileName
@@ -54,8 +54,8 @@ def write_p(p, specXMLFileName='test.xml'):
     xmldoc.writexml(f)
     
 def read_all(specXMLFileName, p_in = []):
-    
-    p=np.zeros(12)
+
+    p=np.zeros(14)
     Optics=np.array([])
     Beams=np.array([])
     Cameras=np.array([])
@@ -79,11 +79,8 @@ def read_all(specXMLFileName, p_in = []):
             
             
             
-            #Explores the first level child nodes (focal length, beams, optical elements)
-            if specElement.nodeName=='focal_length':
-                fLength=float(specElement.firstChild.data)
-            
-            elif specElement.nodeName=='cameras':
+            #Explores the first level child nodes (beams, optical elements, cameras)          
+            if specElement.nodeName=='cameras':
                 for camera in specElement.childNodes:   
                     if camera.nodeType==1:
                         if camera.hasAttribute('param'):
@@ -91,22 +88,29 @@ def read_all(specXMLFileName, p_in = []):
                                 p[int(camera.attributes.getNamedItem('param').value)] = float(camera.firstChild.data)
                             else:
                                 p[int(camera.attributes.getNamedItem('param').value)] = p_in[int(camera.attributes.getNamedItem('param').value)]                    
+                        
                         for child in camera.childNodes:
                             if child.nodeType==1: 
                                 if child.nodeName=='name':
-                                    name=child.firstChild.data                                          
+                                    name=str(child.firstChild.data)     
+                                elif child.nodeName=='focalLength':
+                                    fLength=float(child.firstChild.data)                                     
                                 elif child.nodeName=='width':
-                                    width=child.firstChild.data
+                                    width=int(child.firstChild.data)
                                 elif child.nodeName=='height':
-                                   height=child.firstChild.data
+                                   height=int(child.firstChild.data)
                                 elif child.nodeName=='pSize':
-                                   pSize=child.firstChild.data
+                                   pSize=float(child.firstChild.data)
                                 elif child.nodeName=='minLambda':
-                                   minLambda=child.firstChild.data
+                                   minLambda=float(child.firstChild.data)
                                 elif child.nodeName=='maxLambda':
-                                   maxLambda=child.firstChild.data
+                                   maxLambda=float(child.firstChild.data)
                                 elif child.nodeName=='distortion':
-                                   distortion=child.firstChild.data
+                                   distortion=float(child.firstChild.data)
+                                elif child.nodeName=='distortionCenterX':
+                                   distortionCenterX=float(child.firstChild.data)
+                                elif child.nodeName=='distortionCenterY':
+                                   distortionCenterY=float(child.firstChild.data)
                                                                                                                             
                                 if child.hasAttribute('param'):
                                     if p_in==[]:
@@ -127,8 +131,12 @@ def read_all(specXMLFileName, p_in = []):
                                             maxLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortion':
                                             distortion = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortionCenterX':
+                                            distortionCenterX = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortionCenterY':
+                                            distortionCenterY = p_in[int(child.attributes.getNamedItem('param').value)]   
                                 
-                        newCamera=[[name, width, height, pSize, minLambda, maxLambda, distortion]]
+                        newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda, distortion, distortionCenterX, distortionCenterY]]
                         
                         if len(Cameras)==0:
                             Cameras = np.array(newCamera)
@@ -249,4 +257,4 @@ def read_all(specXMLFileName, p_in = []):
 
 
 
-    return Optics, Beams, Cameras, fLength, p, np.radians(float(stheta))
+    return Beams, Optics, Cameras, p, np.radians(float(stheta))

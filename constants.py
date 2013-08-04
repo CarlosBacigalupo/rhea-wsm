@@ -41,12 +41,15 @@ OpticsGPeriod=4
 OpticsGBlAngle=5
 
 CamerasName=0
-CamerasWidth=1
-CamerasHeight=2
-CamerasPSize=3
-CamerasMinLambda=4
-CamerasMaxLambda=5
-CamerasDistortion=6
+CamerasFLength=1
+CamerasWidth=2
+CamerasHeight=3
+CamerasPSize=4
+CamerasMinLambda=5
+CamerasMaxLambda=6
+CamerasDistortion=7
+CamerasDistortionCenterX=8
+CamerasDistortionCenterY=9
 
 
 #File info

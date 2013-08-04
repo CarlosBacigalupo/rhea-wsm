@@ -125,12 +125,9 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     Notes
     -----  
     '''   
-       
-    #Distortion np.array
-    K = [] #p[11]
-       
+            
     #Reads xml file
-    Optics, Beams, Cameras, fLength, p, stheta = xml_parser.read_all(specXMLFileName, p_try)
+    Beams, Optics, Cameras, p, stheta = xml_parser.read_all(specXMLFileName, p_try)
 #    print p_try
 #    if p_try != []: p = p_try  #when p comes from a fitting result overwrites the p read from the xml file
     
@@ -140,14 +137,23 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta, fLength) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort if any distortion data present
-#    if K!=0: CCDX, CCDY = distort(CCDX, CCDY, K)
-        
+    K = p[11]
+    Xc = p[12]
+    Yc = p[13]
+    import pylab as kkk
+    import sys
+    kkk.scatter(CCDX, CCDY)
+    CCDX, CCDY = distort(CCDX, CCDY, K, Xc , Yc)
+    kkk.scatter(CCDX, CCDY , color= 'red')
+    kkk.ioff()
+    kkk.show()
+
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factor_try=1 ,diag_try = []):
+def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -170,10 +176,15 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     #fit is the output, which is the ideal p vector.
     
     if p_try==[]: p_try = xml.read_p(specXMLFileName)
-    if diag_try==[]: diag_try = np.ones(len(p_try))
+    if diagTry==[]: diagTry = np.ones(len(p_try))
     
-    fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex], full_output=True)#, factor=factor_try, diag=diag_try)
-
+    while True:
+        fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
+        if fit[-1] != 0:
+            break
+        
+    if showStats: wt.fitting_stats(fit)
+    
     return fit
 
 def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName,  booAnalyse=True, booPlotInitialPoints = False, booPlotFinalPoints = False):
@@ -407,3 +418,7 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
 
 #        plt.draw()
         plt.show()
+        
+        
+Beams, Optics, Cameras, a, b = xml.read_all('rhea_initial.xml')
+  

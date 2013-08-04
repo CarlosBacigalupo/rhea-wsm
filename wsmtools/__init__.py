@@ -27,7 +27,7 @@ import time
 from optics import *
 import wsm
 
-def ccd_loop(SEDMap, Beam, Optics, Camera, stheta, fLength): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+def ccd_loop(SEDMap, Beam, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -60,7 +60,7 @@ def ccd_loop(SEDMap, Beam, Optics, Camera, stheta, fLength): #, intNormalize,Int
     CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = np.array([])
     
     pixelSize = float(Camera[CamerasPSize])
-    
+    fLength = float(Camera[CamerasFLength])
     blaze_angle = stheta #Approximately np.arctan(2)
 
     #Retrieves max and min lambdas for intensity calculation
@@ -482,3 +482,11 @@ def find_distance_array(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
 #        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     
     return diff_list
+
+def fitting_stats(fit):
+
+    print 'Fitting Stats'
+    print fit
+
+
+    

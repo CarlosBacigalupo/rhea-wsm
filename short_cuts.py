@@ -22,22 +22,24 @@ def launch_task(task):
         Assign wavelengths and uncertainties.
         Write output file.'''
         calibrationImageFileName = 'hg_rhea_sample1.fits'
-        specXMLFileName = 'rhea.xml'
+        specXMLFileNamefactorTry = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
         wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booPlotInitialPoints = False, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
-        specXMLFileName = 'rhea.xml'
+        specXMLFileName = 'rhea_initial.xml'
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         activeCamera = 0
+        diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 6.7, 50, 50] 
+        showStats = False
+
         SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
-        p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera)      
+        p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera, diagTry = diagTry, showStats = showStats)      
         print p_out
-        p_out = p_out[0]
         
         #plot fit to see new model
-        CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, p_try = p_out)
+        CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, p_try = p_out[0])
         wsm.do_plot_calibration_points(calibrationImageFileName, calibrationDataFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
     
     elif task==5: #Full loop from calibration file to model
@@ -71,6 +73,45 @@ def launch_task(task):
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         wsm.do_plot_calibration_points(calibrationImageFileName, 'c_hg_rhea_sample1.txt', booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
     
+    elif task==8: #find fit, play with parameter space 
+        calibrationDataFileName = 'c_hg_rhea_sample1.txt'
+        specXMLFileName = 'rhea_initial.xml'
+        calibrationImageFileName = 'hg_rhea_sample1.fits'
+        activeCamera = 0
+        showStats = True
+#        diagTry = [0.1,1,0,0,0,0,0,0,0,0,0,0]
+
+#        diagTry = [10,10,10,10,10,10,10,10,10,10]
+#        diagTry = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,10]
+        SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
+        iter = np.arange(0,100,5)
+        dist = np.zeros(len(iter))
+        avgDist = np.zeros(len(iter))
+        plt.ion()
+        for i in np.arange(len(iter)):
+#            diagTry = [iter[i],1,1,1,1,1,1,1,1,1]
+            diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, iter[i], 1, 1 ]  
+#            diagTry = [iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i]]
+            factorTry = 1
+            p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera, diagTry = diagTry, factorTry = factorTry, showStats = showStats)      
+            fvec = p_out[2]['fvec']
+            x = fvec[:len(fvec)/2]
+            y = fvec[len(fvec)/2:]
+            dist[i] = sum(np.sqrt(x**2+y**2))
+            avgDist[i] = dist[i]/len(x)
+            
+            plt.clf()
+#            plt.scatter(iter[:i], dist[:i])
+            plt.scatter(iter[:i+1], avgDist[:i+1], color = 'red')
+            plt.grid()
+            plt.draw()           
+            
+        #plot fit to see new model
+#        CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, p_try = p_out)
+#        wsm.do_plot_calibration_points(calibrationImageFileName, calibrationDataFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
+        plt.ioff()
+        plt.show()
+        
     elif task==100: #random stuff
         a=wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile = 'hg_spectrum.txt')
     #    diag_try = [10,1,1,1,1,1,1,1,1,1,1]
@@ -90,7 +131,7 @@ def launch_task(task):
         plt.scatter(outX, outY)
         plt.show()
         
-launch_task(4)
+launch_task(8)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
