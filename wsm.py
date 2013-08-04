@@ -76,10 +76,10 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.loadtxt(TEMP_DIR + spectrumFileName, unpack=True)
+        SEDMap = np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
         
     elif SEDMode==SED_MODE_CALIB: #From calibration file
-        a=np.loadtxt(TEMP_DIR + spectrumFileName, unpack=True)
+        a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
         SEDMap=np.array((a[2],np.ones(len(a[2]))))
 #        SEDMap.transpose()
                 
@@ -143,13 +143,13 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     K = p[11]
     Xc = p[12]
     Yc = p[13]
-    import pylab as kkk
-    import sys
-    kkk.scatter(CCDX, CCDY)
-    CCDX, CCDY = distort(CCDX, CCDY, K, Xc , Yc)
-    kkk.scatter(CCDX, CCDY , color= 'red')
-    kkk.ioff()
-    kkk.show()
+#    import pylab as kkk
+#    import sys
+#    kkk.scatter(CCDX, CCDY)
+#    CCDX, CCDY = distort(CCDX, CCDY, K)
+#    kkk.scatter(CCDX, CCDY , color= 'red')
+#    kkk.ioff()
+#    kkk.show()
 
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
@@ -180,7 +180,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     
     while True:
         fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
-        if fit[-1] != 0:
+        if fit[-1] != 0: #workaround to avoid inconsistent message 'wrong input parameters(error code 0)'
             break
         
     if showStats: wt.fitting_stats(fit)
@@ -229,7 +229,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
     
     #Create output file with calibration data
-    f = open(TEMP_DIR + 'c_' + outputFileName,'w')
+    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
         f.write(out_string) 
@@ -245,7 +245,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     imageMapLambda = wt.identify_imageMapLambda(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY)
     
     #Create final output file with all calibration data
-    f = open(TEMP_DIR + 'c_' + outputFileName,'w')
+    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
         f.write(out_string) 
@@ -288,11 +288,11 @@ def do_plot_ccd_map(CCDMap, canvasSize=2, backImage='c_noFlat_sky_0deg_460_media
 
         colorTable = np.array((wt.wav2RGB(CCDLambda, CCDIntensity))) 
         
-        hdulist = pyfits.open(FITS_DIR + backImage)
+        hdulist = pyfits.open(FITS_PATH + backImage)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
 
-        im = pyfits.getdata(FITS_DIR + backImage)
+        im = pyfits.getdata(FITS_PATH + backImage)
         im[im<0] = 0
         im /= im.max()
         im = np.sqrt(im) #Remove this line for Hg
@@ -365,10 +365,10 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         if imageMapX==[]: return
         
         #Plot
-        hdulist = pyfits.open(FITS_DIR + backImageFileName)
+        hdulist = pyfits.open(FITS_PATH + backImageFileName)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
-        im = pyfits.getdata(FITS_DIR + backImageFileName) 
+        im = pyfits.getdata(FITS_PATH + backImageFileName) 
         imNorm = ic.normalise_image(im) 
 #        plt.ion()
         fig = plt.figure()

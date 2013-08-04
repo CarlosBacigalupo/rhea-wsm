@@ -8,7 +8,7 @@ def read_p(specXMLFileName):
     p=np.zeros(14)
     
     
-    xmldoc = minidom.parse(SPEC_DIR + specXMLFileName)
+    xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -32,10 +32,10 @@ def read_p(specXMLFileName):
 def write_p(p, specXMLFileName):
     
     bkp_time = time.time()
-    os_command = 'cp ' + SPEC_DIR + specXMLFileName + ' ' +  SPEC_BKP_DIR + str(bkp_time) + '_' + specXMLFileName
+    os_command = 'cp ' + SPEC_PATH + specXMLFileName + ' ' +  SPEC_BKP_PATH + str(bkp_time) + '_' + specXMLFileName
     os.system(os_command)
     
-    xmldoc = minidom.parse(SPEC_DIR + specXMLFileName)
+    xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
     
     spectrograph=xmldoc.childNodes[0]
     for specElement in spectrograph.childNodes:
@@ -50,7 +50,7 @@ def write_p(p, specXMLFileName):
                                 if ((child.nodeType==1) and child.hasAttribute('param')):
                                     child.firstChild.data = p[int(child.attributes.getNamedItem('param').value)]                     
     
-    f = open(SPEC_DIR + specXMLFileName, 'w')
+    f = open(SPEC_PATH + specXMLFileName, 'w')
     xmldoc.writexml(f)
     
 def read_all(specXMLFileName, p_in = []):

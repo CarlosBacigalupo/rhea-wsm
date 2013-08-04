@@ -53,9 +53,9 @@ CamerasDistortionCenterY=9
 
 
 #File info
-SPEC_DIR = 'spectrographs/'
-SPEC_BKP_DIR = 'spectrographs/bkp/'
-FITS_DIR = 'fits/'
-TEMP_DIR = 'out_files/'
-SEXTRACTOR_DIR = '/usr/bin/'
-APP_DIR = '~/workspace/wsm/'
+SPEC_PATH = 'spectrographs/'
+SPEC_BKP_PATH = 'spectrographs/bkp/'
+FITS_PATH = 'fits/'
+TEMP_PATH = 'out_files/'
+SEXTRACTOR_PATH = '/usr/bin/'
+APP_PATH = '~/workspace/wsm/'

@@ -79,19 +79,16 @@ def launch_task(task):
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         activeCamera = 0
         showStats = True
-#        diagTry = [0.1,1,0,0,0,0,0,0,0,0,0,0]
-
-#        diagTry = [10,10,10,10,10,10,10,10,10,10]
-#        diagTry = [0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,10]
-        SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
-        iter = np.arange(0,100,5)
+        
+        iter = np.arange(1)
         dist = np.zeros(len(iter))
         avgDist = np.zeros(len(iter))
+        
+        SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
+
         plt.ion()
         for i in np.arange(len(iter)):
-#            diagTry = [iter[i],1,1,1,1,1,1,1,1,1]
-            diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, iter[i], 1, 1 ]  
-#            diagTry = [iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i], iter[i]]
+            diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 67, 1, 1]  
             factorTry = 1
             p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera, diagTry = diagTry, factorTry = factorTry, showStats = showStats)      
             fvec = p_out[2]['fvec']
@@ -130,8 +127,12 @@ def launch_task(task):
         
         plt.scatter(outX, outY)
         plt.show()
+
+    elif task==102: #test filename maker
+        import wsmtools as wt
+        a = wt.find_specXMLFileName('rhea.xml')
         
-launch_task(8)
+launch_task(102)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

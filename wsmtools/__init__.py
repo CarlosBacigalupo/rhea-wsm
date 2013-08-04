@@ -204,7 +204,7 @@ def find_closest_point_list(CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
 def load_image_map_sex(image_map_filename='calib_out.txt'):
     imageMapX=imageMapY=[]
 
-    try: image_map_file = open(TEMP_DIR + image_map_filename)
+    try: image_map_file = open(TEMP_PATH + image_map_filename)
     except Exception: return [],[]
     image_map_file_temp = image_map_file.readlines()
 
@@ -282,10 +282,10 @@ def extract_order(x,y,image):
     flux3=np.zeros(len(y))
 
     #Grab image and sizes
-    hdulist = pyfits.open(FITS_DIR + image)
+    hdulist = pyfits.open(FITS_PATH + image)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-    im = pyfits.getdata(FITS_DIR + image)  
+    im = pyfits.getdata(FITS_PATH + image)  
 #    x += imWidth/2  #correction for pixel number
 #    y += imHeight/2 
 
@@ -360,7 +360,7 @@ def read_full_calibration_data(calibrationDataFileName):
     Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
     '''
 
-    CalibrationMap=np.loadtxt(TEMP_DIR + calibrationDataFileName)
+    CalibrationMap=np.loadtxt(TEMP_PATH + calibrationDataFileName)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
 def fit_errors(p, args):
@@ -432,7 +432,7 @@ def fit_errors_quad(p,args):
     calibrationDataFileName = args[2]
     CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
 
-    hdulist = pyfits.open(FITS_DIR + 'hg_rhea_sample1.fits')
+    hdulist = pyfits.open(FITS_PATH + 'hg_rhea_sample1.fits')
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
     
@@ -488,5 +488,21 @@ def fitting_stats(fit):
     print 'Fitting Stats'
     print fit
 
-
+def find_specXMLFileName(specXMLFileName):
+    
+    specName = specXMLFileName.rsplit('_v')[0]
+    if len(specName)==len(specXMLFileName):
+        specName = specXMLFileName[:-4]
+        
+    a = os.listdir(SPEC_PATH)
+    b = np.array(a)
+    b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))]
+    
+    b = np.char.rstrip(b, 'xml')
+    b = np.char.rstrip(b, '.')
+    
+    b = np.char.lstrip(b, specName)
+    
+     
+    return specXMLFileName
     
