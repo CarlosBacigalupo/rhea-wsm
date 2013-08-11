@@ -153,7 +153,7 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
 
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
-def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000):
+def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -184,6 +184,8 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
             break
         
     if showStats: wt.fitting_stats(fit)
+    
+    if booWriteP: xml.write_p(fit[0], specXMLFileName)
     
     return fit
 
@@ -219,8 +221,8 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     #Loads coordinate points from calibration output file
     imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.load_image_map_sex(outputFileName)
     if imageMapX == []: return
-    imageMapX -= 3352/2 #todo get these values from global variables
-    imageMapY -= 2532/2
+    imageMapX -= int(Cameras[0][CamerasWidth])/2
+    imageMapY -= int(Cameras[0][CamerasHeight])/2
     
     #Create SEDMap from Mercury emission
     SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt')
@@ -228,7 +230,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     #Create the model based on default parameters
     CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
     
-    #Create output file with calibration data
+    #Create initial output file from calibration data
     f = open(TEMP_PATH + 'c_' + outputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
@@ -238,19 +240,29 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     if booPlotInitialPoints:
         do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration points vs Model comparison ')
     
-    #Find wavelength of detected points
+    #Find wavelength of detected points (first approximation)
     CCDX = CCDMap[CCD_MAP_X] 
     CCDY = CCDMap[CCD_MAP_Y] 
     CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.identify_imageMapLambda(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY)
+    imageMapLambda = wt.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY)
     
-    #Create final output file with all calibration data
-    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
+    #Create temporary output file with all calibration data
+    f = open(TEMP_PATH + 'c_temp_' + outputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
         f.write(out_string) 
     f.close()
 
+    #Correct/confirm found wavelengths
+    imageMapLambda = wt.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName)
+
+    #Create final output file with all calibration data
+    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
+        f.write(out_string) 
+    f.close()   
+    
     #Plot detected points with assigned wavelengths
     if booPlotFinalPoints:
         do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')

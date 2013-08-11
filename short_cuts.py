@@ -20,23 +20,23 @@ def launch_task(task):
     elif task==3: #Read a calibration fits file
         '''Extract centroids.
         Assign wavelengths and uncertainties.
+        User confirm assignment
         Write output file.'''
         calibrationImageFileName = 'hg_rhea_sample1.fits'
-        specXMLFileNamefactorTry = 'rhea.xml'
+        specXMLFileName = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
         wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booPlotInitialPoints = False, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
-        specXMLFileName = 'rhea_initial.xml'
+        specXMLFileName = 'rhea_v2.xml'
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         activeCamera = 0
         diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 6.7, 50, 50] 
-        showStats = False
+        showStats = True
 
         SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
         p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera, diagTry = diagTry, showStats = showStats)      
-        print p_out
         
         #plot fit to see new model
         CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, p_try = p_out[0])
@@ -132,7 +132,7 @@ def launch_task(task):
         import wsmtools as wt
         a = wt.find_specXMLFileName('rhea.xml')
         
-launch_task(102)
+launch_task(4)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

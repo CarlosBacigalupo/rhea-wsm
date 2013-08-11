@@ -26,6 +26,9 @@ import image_calibration as ic
 import time
 from optics import *
 import wsm
+import pylab as plt
+
+global Beams, Optics, Cameras
 
 def ccd_loop(SEDMap, Beam, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     '''
@@ -165,7 +168,7 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             
     return v, isValid
 
-def identify_imageMapLambda(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
+def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
     #todo turn this into a full array calculation
     imageMapLambda = np.zeros(len(imageMapX))
     
@@ -494,15 +497,77 @@ def find_specXMLFileName(specXMLFileName):
     if len(specName)==len(specXMLFileName):
         specName = specXMLFileName[:-4]
         
-    a = os.listdir(SPEC_PATH)
-    b = np.array(a)
-    b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))]
+    a = os.listdir(SPEC_PATH) # retrieves folder contents
+    b = np.array(a) # converts to numpy
+    b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))] # removes non xml files and keeps only spectrograph spcecific
     
-    b = np.char.rstrip(b, 'xml')
-    b = np.char.rstrip(b, '.')
+    b = np.char.rstrip(b, 'xml') 
+    b = np.char.rstrip(b, '.') # removes .xml bit
     
     b = np.char.lstrip(b, specName)
     
-     
-    return specXMLFileName
+    prevVNumbers = np.zeros(len(b))
     
+    for index in range(len(b)): # I don't know how to turn all members of the array to int in one line
+        try:
+            prevVNumbers[index] = int(b[index])
+        except:
+            prevVNumbers[index] = 0
+            
+    vNumber = max(prevVNumbers) + 1
+    specXMLFileName = specName + '_v' + str(int(vNumber)) + '.xml'
+    
+    return specXMLFileName
+
+def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, backImageFileName, canvasSize = 1):    
+    global Beams, Optics, Cameras
+        
+    #Plot
+    imWidth = int(wsm.Cameras[0][CamerasWidth])
+    imHeight = int(wsm.Cameras[0][CamerasHeight])
+    im = pyfits.getdata(FITS_PATH + backImageFileName) 
+    imNorm = ic.normalise_image(im) 
+    
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    plt.imshow(imNorm, extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
+    plt.set_cmap(cm.Greys_r)
+    
+    #Model Points
+    ax1.scatter(CCDX, CCDY ,s=50, color="blue" , marker='o', alpha = 0.5, label='Model Data')
+    fullLabel = [str(CCDLambda[x]) for x in np.arange(len(CCDLambda))]    
+    for x, y, label in zip(CCDX, CCDY, fullLabel ):
+        plt.annotate(
+            label, 
+            xy = (x, y), xytext = (0,-25),
+            textcoords = 'offset points', ha = 'right', va = 'bottom',
+            bbox = dict(boxstyle = 'round,pad=0.5', fc = 'blue', alpha = 0.9))
+    
+    plt.ion()
+    
+    #Calibration Points
+    ax1.scatter(imageMapX, imageMapY ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')       
+    for i in range(len(imageMapX)):
+        x = imageMapX[i]
+        y = imageMapY[i]
+        label = imageMapLambda[i]
+        plt.annotate(
+            label, 
+            xy = (x, y), xytext = (0,-25),
+            textcoords = 'offset points', ha = 'right', va = 'bottom',
+            bbox = dict(boxstyle = 'round,pad=0.5', fc = 'red', alpha = 0.9))
+        plt.draw()
+               
+        default = imageMapLambda[i]
+        userInput = raw_input("Enter a string (default: %s):\n" % default)
+        if userInput:
+            imageMapLambda[i] = userInput
+        else:
+            imageMapLambda[i] = default
+
+#    plt.legend()
+#    title = str(len(imageMapX))+' point(s) found in the calibration image'
+#    plt.title(title) 
+#    plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
+    print imageMapLambda
+    return imageMapLambda

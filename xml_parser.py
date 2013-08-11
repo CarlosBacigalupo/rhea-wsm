@@ -2,6 +2,7 @@ from xml.dom import minidom
 import numpy as np
 from constants import *
 import os, time, sys
+import wsmtools as wt
 
 def read_p(specXMLFileName):
     
@@ -32,8 +33,12 @@ def read_p(specXMLFileName):
 def write_p(p, specXMLFileName):
     
     bkp_time = time.time()
-    os_command = 'cp ' + SPEC_PATH + specXMLFileName + ' ' +  SPEC_BKP_PATH + str(bkp_time) + '_' + specXMLFileName
+    
+    newSpecXMLFileName = wt.find_specXMLFileName(specXMLFileName)
+    os_command = 'cp ' + SPEC_PATH + specXMLFileName + ' ' +  SPEC_PATH + newSpecXMLFileName
     os.system(os_command)
+    
+    specXMLFileName = newSpecXMLFileName
     
     xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
     
