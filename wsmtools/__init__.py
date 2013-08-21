@@ -30,7 +30,7 @@ import pylab as plt
 
 global Beams, Optics, Cameras
 
-def ccd_loop(SEDMap, Beam, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -72,47 +72,50 @@ def ccd_loop(SEDMap, Beam, Optics, Camera, stheta): #, intNormalize,Interpolate=
 #    allFlux=np.array([0])
 #    allLambdas=np.array([0])
     
-    #Navigates orders within the range given   
-    for nOrder in range(minOrder, maxOrder, deltaOrder):
-
-        #loop lambda for current order
-        for i in np.arange(len(SEDMap[SEDMapLambda])): 
-            
-            Lambda=SEDMap[SEDMapLambda][i]
-            inI=SEDMap[SEDMapIntensity][i]
-                        
-            #rhea hack GPeriod from optics, todo
-            GPeriod=31.50321471
-            
-            #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-            if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
-
-                #Computes the unit vector that results from the optical system for a given wavelength and order
-                #This is the actual tracing of the ray for each wavelength             
-                start_time = time.time()
-                v, isValid = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
-                elapsed_time = time.time() - start_time
-                #print 'Elepased time: ' + str(elapsed_time)
-                
-                if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
-                    x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
-                    z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
+    #One per beam
+    for Beam in Beams:
         
-                    outI=Intensity(Lambda, minLambda, maxLambda)    
+        #Navigates orders within the range given   
+        for nOrder in range(minOrder, maxOrder, deltaOrder):
+    
+            #loop lambda for current order
+            for i in np.arange(len(SEDMap[SEDMapLambda])): 
+                
+                Lambda=SEDMap[SEDMapLambda][i]
+                inI=SEDMap[SEDMapIntensity][i]
+                            
+                #rhea hack GPeriod from optics, todo
+                GPeriod=31.50321471
+                
+                #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
+                if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
+    
+                    #Computes the unit vector that results from the optical system for a given wavelength and order
+                    #This is the actual tracing of the ray for each wavelength             
+                    start_time = time.time()
+                    v, isValid = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
+                    elapsed_time = time.time() - start_time
+                    #print 'Elepased time: ' + str(elapsed_time)
                     
-                    #Add results to output arrays
-                    if len(CCDX)==0:
-                        CCDX = np.array([x])
-                        CCDY = np.array([z])
-                        CCDLambda = np.array([Lambda])
-                        CCDIntensity = np.array([inI*outI])
-                        CCDOrder = np.array([nOrder])
-                    else:
-                        CCDX = np.append(CCDX,[x],0)
-                        CCDY = np.append(CCDY,[z],0)
-                        CCDLambda = np.append(CCDLambda,[Lambda],0)
-                        CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
-                        CCDOrder = np.append(CCDOrder,[nOrder],0)
+                    if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
+                        x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
+                        z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
+            
+                        outI=Intensity(Lambda, minLambda, maxLambda)    
+                        
+                        #Add results to output arrays
+                        if len(CCDX)==0:
+                            CCDX = np.array([x])
+                            CCDY = np.array([z])
+                            CCDLambda = np.array([Lambda])
+                            CCDIntensity = np.array([inI*outI])
+                            CCDOrder = np.array([nOrder])
+                        else:
+                            CCDX = np.append(CCDX,[x],0)
+                            CCDY = np.append(CCDY,[z],0)
+                            CCDLambda = np.append(CCDLambda,[Lambda],0)
+                            CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
+                            CCDOrder = np.append(CCDOrder,[nOrder],0)
         
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
 
@@ -142,7 +145,14 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             GPeriod=Optics[i][OpticsGPeriod]
             s=Optics[i][OpticsCoords1]
             l=Optics[i][OpticsCoords2]
-            v_out, isValid = Grating(v, s, l, nOrder, Lambda, GPeriod)
+            v_out, isValid = RGrating(v, s, l, nOrder, Lambda, GPeriod)
+        elif optType==OpticsVPHGrating:
+            isValid=False
+            GPeriod=Optics[i][OpticsGPeriod]
+            s=Optics[i][OpticsCoords1]
+            l=Optics[i][OpticsCoords2]
+            v_out, isValid = VPHGrating(v, s, l, nOrder, Lambda, GPeriod)
+            isValid = True
 #            else:
 #                return v, isValid
             
@@ -157,7 +167,7 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
 #        u = Snell3D(nPrism, nAir, u, n2)
 #        
 #        """grating dispersion"""              
-#        u, isValid = Grating(u, s, l, nOrder, Lambda, d)
+#        u, isValid = RGrating(u, s, l, nOrder, Lambda, d)
 #        
 #        if isValid:
 #            """Vector transform due to third surface"""
@@ -488,8 +498,11 @@ def find_distance_array(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
 
 def fitting_stats(fit):
 
+
     print 'Fitting Stats'
     print fit
+
+
 
 def find_specXMLFileName(specXMLFileName):
     

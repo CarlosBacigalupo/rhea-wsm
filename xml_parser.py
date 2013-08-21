@@ -255,6 +255,47 @@ def read_all(specXMLFileName, p_in = []):
                                 
                                 newOptics = [[s,l,OpticsRGrating,'air',bl_period]]
                                     
+                            elif optType=='VPHGrating':
+                                for child in optElement.childNodes:
+                                    if child.nodeType==1: 
+                                        if child.nodeName=='medium':
+                                            medium=child.firstChild.data
+                                        elif child.nodeName=='phi':
+                                            phi=child.firstChild.data                                         
+                                        elif child.nodeName=='theta':
+                                            stheta=child.firstChild.data
+                                            theta=child.firstChild.data
+                                        elif child.nodeName=='alpha':
+                                            alpha=child.firstChild.data
+                                        elif child.nodeName=='bl_period':
+                                            bl_period=float(child.firstChild.data)
+                                                                                                                                    
+                                        if child.hasAttribute('param'):
+                                            if p_in==[]:
+                                                p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
+                                            else:
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                if child.nodeName=='medium':
+                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='phi':
+                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                elif child.nodeName=='theta':
+                                                    stheta=theta=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='alpha':
+                                                    alpha=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                elif child.nodeName=='bl_period':
+                                                    bl_period=p_in[int(child.attributes.getNamedItem('param').value)]
+                                               
+                                #Build normal and grating vector and update Optics array
+                                s = np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]) #component perp to grooves   
+                                #Now find two vectors (a and b) perpendicular to s:
+                                a = np.array([s[1]/np.sqrt(s[0]**2 + s[1]**2), -s[0]/np.sqrt(s[0]**2 + s[1]**2), 0])
+                                b = np.cross(a,s)
+                                #Create l from given alpha using a and b as basis
+                                l = np.cos(np.radians(float(alpha)))*a + np.sin(np.radians(float(alpha)))*b #component along grooves
+                                
+                                newOptics = [[s,l,OpticsVPHGrating,'air',bl_period]]
+
                             if len(Optics)==0:
                                 Optics = np.array(newOptics)
                             else:

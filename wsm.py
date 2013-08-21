@@ -133,8 +133,9 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     
     
     #hack for RHEA. Needs manual reverse prism on beam return. todo
-    Optics[4][0]=-Optics[0][0]
-    Optics[3][0]=-Optics[1][0]  
+    if specXMLFileName=='rhea.xml':
+        Optics[4][0]=-Optics[0][0]
+        Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
@@ -290,7 +291,7 @@ def do_full_extract_order(CCDMap, nOrder, image):
     
     return flux, newLambdas
 
-def do_plot_ccd_map(CCDMap, canvasSize=2, backImage='c_noFlat_sky_0deg_460_median.fits'):
+def do_plot_ccd_map(CCDMap, canvasSize=2, backImage=''):
         
         CCDX = CCDMap[CCD_MAP_X] 
         CCDY = CCDMap[CCD_MAP_Y] 
@@ -300,15 +301,15 @@ def do_plot_ccd_map(CCDMap, canvasSize=2, backImage='c_noFlat_sky_0deg_460_media
 
         colorTable = np.array((wt.wav2RGB(CCDLambda, CCDIntensity))) 
         
-        hdulist = pyfits.open(FITS_PATH + backImage)
-        imWidth = hdulist[0].header['NAXIS1']
-        imHeight = hdulist[0].header['NAXIS2']
-
-        im = pyfits.getdata(FITS_PATH + backImage)
-        im[im<0] = 0
-        im /= im.max()
-        im = np.sqrt(im) #Remove this line for Hg
-#        im = np.sqrt(im) #Remove this line for Hg
+        imWidth = int(Cameras[0][CamerasWidth])/2
+        imHeight = int(Cameras[0][CamerasHeight])/2
+        
+        if backImage!='':
+            im = pyfits.getdata(FITS_PATH + backImage)
+            im[im<0] = 0
+            im /= im.max()
+            im = np.sqrt(im) #Remove this line for Hg
+    #        im = np.sqrt(im) #Remove this line for Hg
 #    
 #        labels = np.array([0])
 #         
@@ -322,23 +323,21 @@ def do_plot_ccd_map(CCDMap, canvasSize=2, backImage='c_noFlat_sky_0deg_460_media
 #        print random.randrange(-30,-10) random()
 #        plt.subplots_adjust(bottom = 0.1)
 #        plt.plot( x,-z, "o", markersize=7, color=colorTable, markeredgewidth=1,markeredgecolor='g', markerfacecolor='None' )
+            plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
+            plt.set_cmap(cm.Greys_r)
         
         fig = plt.figure()
-        ax1 = fig.add_subplot(111)
+        ax1 = fig.add_subplot(111, axisbg = 'black')
 
-        plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
-        plt.set_cmap(cm.Greys_r)
         ax1.scatter(CCDX, -CCDY ,s=8, color=colorTable , marker='o', alpha =.5)
         plt.axis([-imWidth/2 * canvasSize , imWidth/2 * canvasSize , -imHeight/2 * canvasSize , imHeight/2 * canvasSize])
         plt.title('Order Identification')
         plt.ylabel('pixels')
         plt.xlabel('pixels')
         
-
-
-        if CalibPoints==True:
-            x,y,waveList,xSig,ySig = readCalibrationData(specFile)
-            ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=400, color='black', marker='x', alpha=1)
+#        if CalibPoints==True:
+#            x,y,waveList,xSig,ySig = readCalibrationData(specFile)
+#            ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=400, color='black', marker='x', alpha=1)
         
         plt.show()
 
@@ -432,5 +431,5 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         plt.show()
         
         
-Beams, Optics, Cameras, a, b = xml.read_all('rhea_initial.xml')
+Beams, Optics, Cameras, a, b = xml.read_all('hermes.xml')
   

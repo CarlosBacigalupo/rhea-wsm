@@ -8,10 +8,9 @@ maxOrder=146
 deltaOrder=1
 
 
-
-
-
 #Constants start here------------------------------------------------#todo separate non constants
+
+
 #SED_modes
 SED_MODE_FLAT=0
 SED_MODE_RANDOM=1
@@ -32,6 +31,7 @@ SEDMapIntensity=1
 #Optics types
 OpticsBoundary=0
 OpticsRGrating=1
+OpticsVPHGrating=2
 
 OpticsCoords1=0
 OpticsCoords2=1
@@ -59,3 +59,5 @@ FITS_PATH = 'fits/'
 TEMP_PATH = 'out_files/'
 SEXTRACTOR_PATH = '/usr/bin/'
 APP_PATH = '~/workspace/wsm/'
+DATA_SIMULATOR_PATH = '/Users/Carlos/Documents/HERMES/dataSimulator-1.64/dataSimulator/'
+DATA_SIMULATOR_INPUT = 'ems/'

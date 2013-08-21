@@ -1,6 +1,21 @@
 import numpy as np
 
-def Grating(u, s, l, nOrder, Lambda, d):
+def RGrating(u, s, l, nOrder, Lambda, d):
+    """Computes the new direction of a vector when hitting a grating."""
+    
+    isValid=False
+
+    n = np.cross(s, l) 
+    u_l = np.dot(u, l)
+    u_s = np.dot(u, s) + nOrder*Lambda/d  
+    if (1-u_l**2 -u_s**2)>=0: 
+        u_n = np.sqrt(1- u_l**2 - u_s**2)
+        u = u_l*l + u_s*s + u_n*n
+        isValid=True
+
+    return u, isValid     
+
+def VPHGrating(u, s, l, nOrder, Lambda, d):
     """Computes the new direction of a vector when hitting a grating."""
     
     isValid=False

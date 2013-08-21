@@ -14,8 +14,8 @@ def launch_task(task):
         
     elif task==2: #Create and plot CCD map from continuous source 
         a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.9) 
-        b = wsm.do_ccd_map(a)
-        wsm.do_plot_ccd_map(b)
+        b = wsm.do_ccd_map(a, 'hermes.xml')
+        wsm.do_plot_ccd_map(b, canvasSize=10)
     
     elif task==3: #Read a calibration fits file
         '''Extract centroids.
@@ -29,7 +29,7 @@ def launch_task(task):
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
-        specXMLFileName = 'rhea_v2.xml'
+        specXMLFileName = 'rhea.xml'
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         activeCamera = 0
         diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 6.7, 50, 50] 
@@ -48,7 +48,7 @@ def launch_task(task):
         #step 1 - Read fits, extract calibration points to c_+outputFileName (n x 5 np.array) 
         calibrationImageFileName = 'hg_rhea_sample2.fits'
         outputFileName = 'hg_rhea_sample2.txt'
-        specXMLFileName =  'rhea_v2.xml'
+        specXMLFileName =  'rhea.xml'
         wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName)
         
         #step 2 - find best fit to results extracted
@@ -132,7 +132,7 @@ def launch_task(task):
         import wsmtools as wt
         a = wt.find_specXMLFileName('rhea.xml')
         
-launch_task(4)
+launch_task(2)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
