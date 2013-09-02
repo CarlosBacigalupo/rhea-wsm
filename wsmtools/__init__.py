@@ -178,10 +178,18 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             
     return v, isValid
 
-def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
+def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = False):
     #todo turn this into a full array calculation
     imageMapLambda = np.zeros(len(imageMapX))
     
+    if booAvgAdjust:
+        avgImageX = np.average(imageMapX)
+        avgImageY = np.average(imageMapY)
+        avgCCDX = np.average(CCDX)
+        avgCCDY = np.average(CCDY)
+        CCDXShifted =  CCDX + (avgCCDX - avgImageX)
+        CCDYShifted =  CCDY + (avgCCDY - avgImageY)
+        
     for i in range(len(imageMapX)):
         
         distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
@@ -196,23 +204,6 @@ def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, image
     
     return imageMapLambda
 
-def find_closest_point_list(CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
-    #todo turn this into a full array calculation
-    imageMapLambda = np.zeros(len(imageMapX))
-    
-    for i in range(len(imageMapX)):
-        
-        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
-        closest_point = np.min(distance_array)
-        closest_point_index = np.where(distance_array==closest_point)[0][0]       
-        imageMapLambda[i] = CCDLambda[closest_point_index]
-        
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
-#        lambda_closest_point = np.min(lambda_distance)
-#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
-    
-    return imageMapLambda
 
 def load_image_map_sex(image_map_filename='calib_out.txt'):
     imageMapX=imageMapY=[]
@@ -501,8 +492,6 @@ def fitting_stats(fit):
 
     print 'Fitting Stats'
     print fit
-
-
 
 def find_specXMLFileName(specXMLFileName):
     

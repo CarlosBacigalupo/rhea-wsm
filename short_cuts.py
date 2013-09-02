@@ -25,7 +25,7 @@ def launch_task(task):
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         specXMLFileName = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
-        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booPlotInitialPoints = False, booPlotFinalPoints = True)
+        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booAvgAdjust = True, booPlotInitialPoints = True, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
@@ -132,7 +132,7 @@ def launch_task(task):
         import wsmtools as wt
         a = wt.find_specXMLFileName('rhea.xml')
         
-launch_task(2)
+launch_task(3)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

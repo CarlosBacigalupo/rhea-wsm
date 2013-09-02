@@ -683,3 +683,20 @@ def findFit(calibrationFile, p_try=[ 271.92998622,   91.03999719,   59.48997316,
 
 
     return fit
+
+def find_closest_point_list(CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
+    #todo turn this into a full array calculation
+    imageMapLambda = np.zeros(len(imageMapX))
+    if 
+    for i in range(len(imageMapX)):
+        
+        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
+        closest_point = np.min(distance_array)
+        closest_point_index = np.where(distance_array==closest_point)[0][0]       
+        imageMapLambda[i] = CCDLambda[closest_point_index]
+        
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
+#        lambda_closest_point = np.min(lambda_distance)
+#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    return imageMapLambda

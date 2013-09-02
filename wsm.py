@@ -190,7 +190,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     
     return fit
 
-def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName,  booAnalyse=True, booPlotInitialPoints = False, booPlotFinalPoints = False):
+def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName,  booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -245,7 +245,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     CCDX = CCDMap[CCD_MAP_X] 
     CCDY = CCDMap[CCD_MAP_Y] 
     CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY)
+    imageMapLambda = wt.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
     
     #Create temporary output file with all calibration data
     f = open(TEMP_PATH + 'c_temp_' + outputFileName,'w')
@@ -431,5 +431,5 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         plt.show()
         
         
-Beams, Optics, Cameras, a, b = xml.read_all('hermes.xml')
+Beams, Optics, Cameras, a, b = xml.read_all('rhea.xml')
   
