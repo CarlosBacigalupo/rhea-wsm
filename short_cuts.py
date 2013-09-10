@@ -25,7 +25,7 @@ def launch_task(task):
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         specXMLFileName = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
-        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booAvgAdjust = True, booPlotInitialPoints = True, booPlotFinalPoints = True)
+        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
@@ -67,7 +67,7 @@ def launch_task(task):
         wsm.do_plot_sed_map(a)
         b = wsm.do_ccd_map(a)  
         wsm.do_plot_ccd_map(b)
-        c = wsm.do_full_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
+        c = wsm.do_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
     
     elif task==7: #plot points from calibration file
         calibrationImageFileName = 'hg_rhea_sample1.fits'
@@ -130,14 +130,14 @@ def launch_task(task):
 
     elif task==102: #test filename maker
         import wsmtools as wt
-        a = wt.find_specXMLFileName('rhea.xml')
+        a = wt.xml.find_specXMLFileName('rhea.xml')
         
-launch_task(3)
+launch_task(7)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)
 #b=wsm.do_ccd_map(a)
-#c=wsm.do_full_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
+#c=wsm.do_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
 #
 #
 #

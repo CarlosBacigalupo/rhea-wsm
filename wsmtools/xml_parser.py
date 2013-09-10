@@ -34,7 +34,7 @@ def write_p(p, specXMLFileName):
     
     bkp_time = time.time()
     
-    newSpecXMLFileName = wt.find_specXMLFileName(specXMLFileName)
+    newSpecXMLFileName = find_specXMLFileName(specXMLFileName)
     os_command = 'cp ' + SPEC_PATH + specXMLFileName + ' ' +  SPEC_PATH + newSpecXMLFileName
     os.system(os_command)
     
@@ -304,3 +304,32 @@ def read_all(specXMLFileName, p_in = []):
 
 
     return Beams, Optics, Cameras, p, np.radians(float(stheta))
+
+def find_specXMLFileName(specXMLFileName):
+    
+    specName = specXMLFileName.rsplit('_v')[0]
+    if len(specName)==len(specXMLFileName):
+        specName = specXMLFileName[:-4]
+        
+    a = os.listdir(SPEC_PATH) # retrieves folder contents
+    b = np.array(a) # converts to numpy
+    b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))] # removes non xml files and keeps only spectrograph spcecific
+    
+    b = np.char.rstrip(b, 'xml') 
+    b = np.char.rstrip(b, '.') # removes .xml bit
+    
+    b = np.char.lstrip(b, specName)
+    
+    prevVNumbers = np.zeros(len(b))
+    
+    for index in range(len(b)): # I don't know how to turn all members of the array to int in one line
+        try:
+            prevVNumbers[index] = int(b[index])
+        except:
+            prevVNumbers[index] = 0
+            
+    vNumber = max(prevVNumbers) + 1
+    specXMLFileName = specName + '_v' + str(int(vNumber)) + '.xml'
+    
+    return specXMLFileName
+

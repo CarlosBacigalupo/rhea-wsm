@@ -5,18 +5,6 @@ from constants import *
 import subprocess
 
 
-def analyse_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
-      
-    os_command = SEXTRACTOR_PATH +'sex ' + FITS_PATH + image_filename + ' -c ' + SPEC_PATH + 'rhea.sex'
-    os_command += ' -CATALOG_NAME ' + TEMP_PATH + image_map_filename
-#     os_command = '/usr/local/bin/sex'
-#     os.system(os_command)
-    proc = subprocess.Popen([os_command,SEXTRACTOR_PATH], stdout=subprocess.PIPE, shell=True)
-    out, err_result = proc.communicate()
-
-    # todo check results of os call and pass err_result
-    return err_result, out
-
 def check_if_file_exists(filename):
     #i = 0 # counter to stop this going on forever
     if os.path.isfile(filename): os.remove(filename)

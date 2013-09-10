@@ -700,3 +700,71 @@ def find_closest_point_list(CCDX, CCDY, CCDLambda, imageMapX, imageMapY):
 #        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
 #        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
     return imageMapLambda
+
+def fit_errors_quad(p,args):
+    '''
+    do_ccd_map will return these vectors in a random order. 
+    We assume that there are no rounding errors (probably a hack?)
+    and will use a floating point == to identify the (x,y) corresponding
+    to each wavelength input.
+    NB A much better idea would be to re-write main without vstack but
+    instead with a neatly created output structure that is defined at the start.
+    i.e. when going from SEDMap to SEDMapLoop the information on which line in
+    the input each wavelength came from was lost.
+    '''
+    
+    SEDMap = args[0]
+    specFileName = args[1]
+    calibrationDataFileName = args[2]
+    CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = ia.read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
+
+    hdulist = pyfits.open(FITS_PATH + 'hg_rhea_sample1.fits')
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+    
+#    #convert model output to CCD coordinates
+#    CCDX_c -= imWidth/2 #Make these globals todo
+#    CCDY_c -= imHeight/2
+    
+    CCDX_m, CCDY_m, lambda_m, Intensity, Order = wsm.do_ccd_map(SEDMap, p_try = p)
+    
+    x,y = find_closest_points(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m)
+
+    return np.hstack([(x.transpose(),y.transpose())])
+
+def find_closest_points(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
+    #todo turn this into a full array calculation
+    diff_list = np.zeros((2,len(CCDX_c)))
+
+    for i in range(len(CCDX_c)):
+        
+        distance_array = np.sqrt((CCDX_m-CCDX_c[i])**2+(CCDY_m-CCDY_c[i])**2)
+        closest_point = np.min(distance_array[lambda_c[i]==lambda_m])
+        closest_point_index = np.where(distance_array==closest_point)[0][0]       
+        diff_list[0][i] = CCDX_m[closest_point_index]-CCDX_c[i]
+        diff_list[1][i] = CCDY_m[closest_point_index]-CCDY_c[i]
+        
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
+#        lambda_closest_point = np.min(lambda_distance)
+#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    
+    return diff_list[0], diff_list[1]
+
+def find_distance_array(CCDX_c, CCDY_c, lambda_c, CCDX_m, CCDY_m, lambda_m):
+    #todo turn this into a full array calculation
+    diff_list = np.zeros(len(CCDX_c))
+    
+    for i in range(len(CCDX_c)):
+        
+        distance_array = np.sqrt((CCDX_m-CCDX_c[i])**2+(CCDY_m-CCDY_c[i])**2)
+        closest_point = np.min(distance_array[lambda_c[i]==lambda_m])
+#        closest_point_index = np.where(distance_array==closest_point)[0][0]       
+        diff_list[i] = closest_point 
+        
+#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
+#        lambda_closest_point = np.min(lambda_distance)
+#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
+#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
+    
+    return diff_list

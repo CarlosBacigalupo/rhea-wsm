@@ -19,11 +19,9 @@ import xml_parser as xml
 from constants import *
 import xml_parser
 import wsmtools as wt
-import image_calibration as ic
 from optics import distort
 
 def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName=''): 
-
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -138,7 +136,7 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
         Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.optics.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
      
     #Distort if any distortion data present
     K = p[11]
@@ -195,6 +193,8 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     Extracts peaks with sextractor
     Imports found points into arrays
     Plots found points on image
+    Assigns initial wavelength based on proximity
+    Asks for user input to refine assignment
        
     Parameters
     ----------
@@ -217,7 +217,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     Notes
     -----
     '''      
-    if booAnalyse: ic.analyse_image_sex(calibrationImageFileName, outputFileName)
+    if booAnalyse: wt.ia.analyse_image_sex(calibrationImageFileName, outputFileName)
     
     #Loads coordinate points from calibration output file
     imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.load_image_map_sex(outputFileName)
@@ -245,7 +245,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     CCDX = CCDMap[CCD_MAP_X] 
     CCDY = CCDMap[CCD_MAP_Y] 
     CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
+    imageMapLambda = wt.ia.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
     
     #Create temporary output file with all calibration data
     f = open(TEMP_PATH + 'c_temp_' + outputFileName,'w')
@@ -255,7 +255,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     f.close()
 
     #Correct/confirm found wavelengths
-    imageMapLambda = wt.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName)
+    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName)
 
     #Create final output file with all calibration data
     f = open(TEMP_PATH + 'c_' + outputFileName,'w')
@@ -270,7 +270,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
        
     return
 
-def do_full_extract_order(CCDMap, nOrder, image):
+def do_extract_order(CCDMap, nOrder, image):
     
     CCDX = CCDMap[CCD_MAP_X]
     CCDY = CCDMap[CCD_MAP_Y]
@@ -287,7 +287,7 @@ def do_full_extract_order(CCDMap, nOrder, image):
     
     newX, newY, newLambdas = wt.calculate_from_Y(CCDY, fX, fLambda)
     
-    flux = wt.extract_order(newX, newY, image)
+    flux = wt.ia.extract_order(newX, newY, image)
     
     return flux, newLambdas
 
@@ -372,7 +372,7 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
             CCDOrder = CCDMap[CCD_MAP_ORDER] 
 
         #Loads from calibration output file
-        imageMapX, imageMapY, imageMapLambda , imageMapXsig , imageMapYsig  = wt.read_full_calibration_data(calibrationDataFileName)
+        imageMapX, imageMapY, imageMapLambda , imageMapXsig , imageMapYsig  = wt.ia.read_full_calibration_data(calibrationDataFileName)
         if imageMapX==[]: return
         
         #Plot
