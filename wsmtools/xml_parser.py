@@ -6,7 +6,7 @@ import wsmtools as wt
 
 def read_p(specXMLFileName):
     
-    p=np.zeros(14)
+    p=np.zeros(16)
     
     
     xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
@@ -60,7 +60,7 @@ def write_p(p, specXMLFileName):
     
 def read_all(specXMLFileName, p_in = []):
 
-    p=np.zeros(14)
+    p=np.zeros(16)
     Optics=np.array([])
     Beams=np.array([])
     Cameras=np.array([])
@@ -110,8 +110,12 @@ def read_all(specXMLFileName, p_in = []):
                                    minLambda=float(child.firstChild.data)
                                 elif child.nodeName=='maxLambda':
                                    maxLambda=float(child.firstChild.data)
-                                elif child.nodeName=='distortion':
-                                   distortion=float(child.firstChild.data)
+                                elif child.nodeName=='distortion1':
+                                   distortion1=float(child.firstChild.data)
+                                elif child.nodeName=='distortion2':
+                                   distortion2=float(child.firstChild.data)
+                                elif child.nodeName=='distortion3':
+                                   distortion3=float(child.firstChild.data)
                                 elif child.nodeName=='distortionCenterX':
                                    distortionCenterX=float(child.firstChild.data)
                                 elif child.nodeName=='distortionCenterY':
@@ -134,14 +138,18 @@ def read_all(specXMLFileName, p_in = []):
                                             minLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='maxLambda':
                                             maxLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
-                                        elif child.nodeName=='distortion':
-                                            distortion = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortion1':
+                                            distortion1 = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortion2':
+                                            distortion2 = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                        elif child.nodeName=='distortion3':
+                                            distortion3 = p_in[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortionCenterX':
                                             distortionCenterX = p_in[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortionCenterY':
                                             distortionCenterY = p_in[int(child.attributes.getNamedItem('param').value)]   
                                 
-                        newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda, distortion, distortionCenterX, distortionCenterY]]
+                        newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda, distortion1, distortion2, distortion3, distortionCenterX, distortionCenterY]]
                         
                         if len(Cameras)==0:
                             Cameras = np.array(newCamera)
@@ -152,11 +160,17 @@ def read_all(specXMLFileName, p_in = []):
             elif specElement.nodeName=='beams':
                 for beam in specElement.childNodes:   
                     if beam.nodeType==1:
+                        
                         if beam.hasAttribute('param'):
                             if p_in==[]:
                                 p[int(beam.attributes.getNamedItem('param').value)] = float(beam.firstChild.data)
                             else:
                                 p[int(beam.attributes.getNamedItem('param').value)] = p_in[int(beam.attributes.getNamedItem('param').value)]                    
+                        
+                        if beam.hasAttribute('beamID'):
+                            beamID = int(beam.attributes.getNamedItem('beamID').value)
+                   
+                        
                         for child in beam.childNodes:
                             if child.nodeType==1: 
                                 if child.nodeName=='phi':
@@ -174,12 +188,12 @@ def read_all(specXMLFileName, p_in = []):
                                         elif child.nodeName=='theta':
                                             theta = p_in[int(child.attributes.getNamedItem('param').value)]   
                                 
-                        newBeam=[[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]]
+                        newBeam=[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]
                         
                         if len(Beams)==0:
-                            Beams = np.array(newBeam)
+                            Beams = np.array([[newBeam, beamID]])
                         else:
-                            Beams = np.append(Beams, newBeam, 0)
+                            Beams = np.append(Beams, [[newBeam, beamID]], 0)
                             
             elif specElement.nodeName=='optical_elements':  
                 for optElement in specElement.childNodes:   

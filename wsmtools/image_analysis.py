@@ -1,3 +1,12 @@
+import numpy as np
+import subprocess
+import pyfits
+import pylab as plt
+import matplotlib.cm as cm
+
+from constants import *
+import image_calibration as ic
+
 def analyse_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
       
     os_command = SEXTRACTOR_PATH +'sex ' + FITS_PATH + image_filename + ' -c ' + SPEC_PATH + 'rhea.sex'
@@ -19,8 +28,18 @@ def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, image
         avgImageY = np.average(imageMapY)
         avgCCDX = np.average(CCDX)
         avgCCDY = np.average(CCDY)
-        CCDXShifted =  CCDX + (avgCCDX - avgImageX)
-        CCDYShifted =  CCDY + (avgCCDY - avgImageY)
+        CCDXShifted = CCDX + (avgImageX- avgCCDX)
+        CCDYShifted = CCDY + (avgImageY - avgCCDY)
+
+        import pylab as ppp
+        ppp.scatter(CCDX, CCDY, s=50, color="blue", label='Model Data')
+        ppp.scatter(imageMapX, imageMapY, s=50, color="red", label='Calibration Data')
+        ppp.scatter(CCDXShifted, CCDYShifted, s=50, color="green", label='Average Corrected Model Data')
+        ppp.show()
+        
+        CCDX = CCDXShifted 
+        CCDY = CCDYShifted
+        
         
     for i in range(len(imageMapX)):
         
@@ -36,12 +55,11 @@ def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, image
     
     return imageMapLambda
 
-def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, backImageFileName, canvasSize = 1):    
-    global Beams, Optics, Cameras
-        
+def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, backImageFileName, Cameras, canvasSize = 1):    
+    
     #Plot
-    imWidth = int(wsm.Cameras[0][CamerasWidth])
-    imHeight = int(wsm.Cameras[0][CamerasHeight])
+    imWidth = int(Cameras[0][CamerasWidth])
+    imHeight = int(Cameras[0][CamerasHeight])
     im = pyfits.getdata(FITS_PATH + backImageFileName) 
     imNorm = ic.normalise_image(im) 
     

@@ -23,6 +23,7 @@ CCD_MAP_Y = 1
 CCD_MAP_LAMBDA = 2
 CCD_MAP_INTENSITY = 3
 CCD_MAP_ORDER = 4
+CCD_MAP_BEAMID = 5
 
 #SEDMap
 SEDMapLambda=0
@@ -47,17 +48,21 @@ CamerasHeight=3
 CamerasPSize=4
 CamerasMinLambda=5
 CamerasMaxLambda=6
-CamerasDistortion=7
-CamerasDistortionCenterX=8
-CamerasDistortionCenterY=9
-
+CamerasDistortion1=7
+CamerasDistortion2=8
+CamerasDistortion3=9
+CamerasDistortionCenterX=10
+CamerasDistortionCenterY=11
 
 #File info
 SPEC_PATH = 'spectrographs/'
 SPEC_BKP_PATH = 'spectrographs/bkp/'
 FITS_PATH = 'fits/'
 TEMP_PATH = 'out_files/'
-SEXTRACTOR_PATH = '/usr/local/bin/'
+SEXTRACTOR_PATH = ''
 APP_PATH = '~/workspace/wsm/'
 DATA_SIMULATOR_PATH = '/Users/Carlos/Documents/HERMES/dataSimulator-1.64/dataSimulator/'
 DATA_SIMULATOR_INPUT = 'ems/'
+
+
+

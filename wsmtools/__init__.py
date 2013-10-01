@@ -20,15 +20,17 @@ import numpy as np
 import os, pyfits, random
 import pylab as pl
 from astLib import astSED
-from constants import *
 from matplotlib import *
-import image_calibration as ic
 import time
-from optics import *
-import wsm
 import pylab as plt
 
-global Beams, Optics, Cameras
+#Custom Packages
+import xml_parser as xml
+import image_calibration as ic
+import image_analysis as ia
+from optics import *
+from constants import *
+import wsm
 
 
 def calculate_from_Y(Y, fX, fLambda):

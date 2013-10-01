@@ -1,5 +1,7 @@
 import numpy as np
 
+from constants import *
+
 def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
@@ -30,11 +32,11 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
     '''   
        
     dataOut=np.zeros(5)
-    CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = np.array([])
+    CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = CCDBeamID = np.array([])
     
     pixelSize = float(Camera[CamerasPSize])
     fLength = float(Camera[CamerasFLength])
-    blaze_angle = stheta #Approximately np.arctan(2)
+    blaze_angle = stheta #Approximately np.arctan(2) #todo check how to make this general
 
     #Retrieves max and min lambdas for intensity calculation
     minLambda=min(SEDMap[SEDMapLambda])
@@ -42,6 +44,10 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
 #    allFlux=np.array([0])
 #    allLambdas=np.array([0])
     
+    for i in range(len(Optics)):
+        if (Optics[i][OpticsType]==OpticsRGrating or Optics[i][OpticsType]==OpticsVPHGrating):
+            GPeriod=Optics[i][OpticsGPeriod]
+        
     #One per beam
     for Beam in Beams:
         
@@ -51,21 +57,20 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
             #loop lambda for current order
             for i in np.arange(len(SEDMap[SEDMapLambda])): 
                 
-                Lambda=SEDMap[SEDMapLambda][i]
-                inI=SEDMap[SEDMapIntensity][i]
+                Lambda = SEDMap[SEDMapLambda][i]
+                inI = SEDMap[SEDMapIntensity][i]
                             
-                #rhea hack GPeriod from optics, todo
-                GPeriod=31.50321471
+                #rhea hack GPeriod from optics, fixed, remove after a while
+#                GPeriod=31.50321471
                 
                 #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-                if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
-    
+#                if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
+                if (abs(Lambda*(nOrder+1)) >= abs(2*GPeriod*np.sin(blaze_angle)) and abs(Lambda*(nOrder-1)) <= abs(2*GPeriod*np.sin(blaze_angle))):
+#                if 1==1:  
                     #Computes the unit vector that results from the optical system for a given wavelength and order
                     #This is the actual tracing of the ray for each wavelength             
-                    start_time = time.time()
-                    v, isValid = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
-                    elapsed_time = time.time() - start_time
-                    #print 'Elepased time: ' + str(elapsed_time)
+                    v, isValid, beamID = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
+
                     
                     if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
                         x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
@@ -80,14 +85,16 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
                             CCDLambda = np.array([Lambda])
                             CCDIntensity = np.array([inI*outI])
                             CCDOrder = np.array([nOrder])
+                            CCDBeamID = np.array([beamID])
                         else:
                             CCDX = np.append(CCDX,[x],0)
                             CCDY = np.append(CCDY,[z],0)
                             CCDLambda = np.append(CCDLambda,[Lambda],0)
                             CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
                             CCDOrder = np.append(CCDOrder,[nOrder],0)
-        
-    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
+                            CCDBeamID = np.append(CCDBeamID,[beamID],0)
+       
+    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
 
 def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
     ''' Traces a beam through the spectrograph. 
@@ -98,7 +105,8 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
     l=grating, parallel to the grooves.
     d=blaze period'''
     
-    v = Beam
+    v = Beam[0]
+    beamID = Beam[1]
     
     #loops through optics array
     for i in range(len(Optics)):
@@ -122,7 +130,7 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
             s=Optics[i][OpticsCoords1]
             l=Optics[i][OpticsCoords2]
             v_out, isValid = VPHGrating(v, s, l, nOrder, Lambda, GPeriod)
-            isValid = True
+#            isValid = True
 #            else:
 #                return v, isValid
             
@@ -146,7 +154,7 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
 #            """Vector transform due to fourth surface"""
 #            u = Snell3D(nPrism, nAir, u, n5)
             
-    return v, isValid
+    return v, isValid, beamID
 
 def RGrating(u, s, l, nOrder, Lambda, d):
     """Computes the new direction of a vector when hitting a grating."""
@@ -234,18 +242,21 @@ def distort( inX, inY, K=0, Xc=0 , Yc=0):
     -----
     
     '''
-    
-    Delta=1
-    r = np.sqrt((inX-np.ones(len(inX))*Xc)**2+(inY-np.ones(len(inY))*Yc)**2)
-    r /= max(r)
-       
-#    for i in np.arange(len(K)):
-#        Delta += K[i] * r**((i+1)*2)
-    Delta += K * r**2
+    if len(inX)>0:
         
-    outX = (inX-np.ones(len(inX))*Xc)*Delta
-    outY = (inY-np.ones(len(inY))*Yc)*Delta
-
+        Delta=1
+        r = np.sqrt((inX-np.ones(len(inX))*Xc)**2+(inY-np.ones(len(inY))*Yc)**2)
+        r /= max(r)
+           
+        for i in np.arange(len(K)):
+            Delta += K[i] * r**((i+1)*2)
+        
+        outX = (inX-np.ones(len(inX))*Xc)*Delta
+        outY = (inY-np.ones(len(inY))*Yc)*Delta
+    
+    else:
+        outX, outY = inX, inY
+        
     return outX, outY
 
 def wav2RGB(Lambda, Intensity):

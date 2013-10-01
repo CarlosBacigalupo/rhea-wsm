@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <spectrograph name="RHEA">
   <beams>
-    <beam>
+    <beam beamID="1">
       <phi param="0">272.31422902</phi>
       <theta param="1">90.7157937</theta>
     </beam>
@@ -43,9 +43,11 @@
     <pSize>5.4</pSize>
     <minLambda>0.3</minLambda>
     <maxLambda>0.9</maxLambda>
-    <distortion param="11">1</distortion>
-    <distortionCenterX param="12">0</distortionCenterX>
-    <distortionCenterY param="13">0</distortionCenterY>
+    <distortion1 param="11">0</distortion1>
+    <distortion2 param="12">0</distortion2>
+    <distortion3 param="13">0</distortion3>
+    <distortionCenterX param="14">0</distortionCenterX>
+    <distortionCenterY param="15">0</distortionCenterY>
     </camera>
   </cameras>
 </spectrograph>

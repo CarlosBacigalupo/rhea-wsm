@@ -1,25 +1,20 @@
-#General Imports
-import random       #random generator package
-import pyfits       #fits package
-import os           #os access
-
-#Aliases
+#external Packages
+import random        
+import pyfits       
+import os           
 import numpy as np
-import matplotlib.cm as cm
 import bisect as bis
+import matplotlib.cm as cm
 import matplotlib.image as mpimg
-import matplotlib.pyplot as plt     #matlab
+import matplotlib.pyplot as plt    
 from scipy.optimize.minpack import leastsq
-from  scipy.optimize import * #least square package
+from scipy.optimize import * #least square package
 from scipy import interpolate #interpolate function
 from astLib import astSED #Astro Libraries           
-import xml_parser as xml
 
-#Custom Packages
-from constants import *
-import xml_parser
+#internal modules
+from wsmtools.constants import *
 import wsmtools as wt
-from optics import distort
 
 def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName=''): 
     '''
@@ -125,32 +120,23 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     '''   
             
     #Reads xml file
-    Beams, Optics, Cameras, p, stheta = xml_parser.read_all(specXMLFileName, p_try)
-#    print p_try
-#    if p_try != []: p = p_try  #when p comes from a fitting result overwrites the p read from the xml file
+    Beams, Optics, Cameras, p, stheta = wt.xml.read_all(specXMLFileName, p_try)   
     
-    
-    #hack for RHEA. Needs manual reverse prism on beam return. todo
+    #hack for RHEA. Needs manual reverse of prism on beam return. todo
     if specXMLFileName=='rhea.xml':
         Optics[4][0]=-Optics[0][0]
         Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder = wt.optics.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta) #minLambda ,maxLambda ,deltaLambda ,minOrder ,maxOrder ,deltaOrder ,fLength ,stheta) 
+    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID = wt.optics.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta)
      
     #Distort if any distortion data present
-    K = p[11]
-    Xc = p[12]
-    Yc = p[13]
-#    import pylab as kkk
-#    import sys
-#    kkk.scatter(CCDX, CCDY)
-#    CCDX, CCDY = distort(CCDX, CCDY, K)
-#    kkk.scatter(CCDX, CCDY , color= 'red')
-#    kkk.ioff()
-#    kkk.show()
-
-    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder
+    K = [p[11], p[12], p[13]]
+    Xc = p[14]
+    Yc = p[15]
+    CCDX, CCDY = wt.distort(CCDX, CCDY, K, Xc, Yc)
+    
+    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
 
 def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
     '''
@@ -174,7 +160,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
     
-    if p_try==[]: p_try = xml.read_p(specXMLFileName)
+    if p_try==[]: p_try = wt.xml.read_p(specXMLFileName)
     if diagTry==[]: diagTry = np.ones(len(p_try))
     
     while True:
@@ -217,10 +203,12 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     Notes
     -----
     '''      
+    global Beams, Optics, Cameras, a, b 
+    
     if booAnalyse: wt.ia.analyse_image_sex(calibrationImageFileName, outputFileName)
     
     #Loads coordinate points from calibration output file
-    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.load_image_map_sex(outputFileName)
+    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
     if imageMapX == []: return
     imageMapX -= int(Cameras[0][CamerasWidth])/2
     imageMapY -= int(Cameras[0][CamerasHeight])/2
@@ -255,7 +243,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     f.close()
 
     #Correct/confirm found wavelengths
-    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName)
+#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName, Cameras)
 
     #Create final output file with all calibration data
     f = open(TEMP_PATH + 'c_' + outputFileName,'w')
@@ -291,19 +279,23 @@ def do_extract_order(CCDMap, nOrder, image):
     
     return flux, newLambdas
 
-def do_plot_ccd_map(CCDMap, canvasSize=2, backImage=''):
+def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         
         CCDX = CCDMap[CCD_MAP_X] 
         CCDY = CCDMap[CCD_MAP_Y] 
         CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
         CCDIntensity = CCDMap[CCD_MAP_INTENSITY] 
         CCDOrder = CCDMap[CCD_MAP_ORDER] 
+        CCDBeamID = CCDMap[CCD_MAP_BEAMID] 
 
         colorTable = np.array((wt.wav2RGB(CCDLambda, CCDIntensity))) 
         
-        imWidth = int(Cameras[0][CamerasWidth])/2
-        imHeight = int(Cameras[0][CamerasHeight])/2
+        imWidth = int(Cameras[0][CamerasWidth])
+        imHeight = int(Cameras[0][CamerasHeight])
         
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111, axisbg = 'black')
+
         if backImage!='':
             im = pyfits.getdata(FITS_PATH + backImage)
             im[im<0] = 0
@@ -326,8 +318,7 @@ def do_plot_ccd_map(CCDMap, canvasSize=2, backImage=''):
             plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
             plt.set_cmap(cm.Greys_r)
         
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111, axisbg = 'black')
+
 
         ax1.scatter(CCDX, -CCDY ,s=8, color=colorTable , marker='o', alpha =.5)
         plt.axis([-imWidth/2 * canvasSize , imWidth/2 * canvasSize , -imHeight/2 * canvasSize , imHeight/2 * canvasSize])
@@ -380,7 +371,7 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
         im = pyfits.getdata(FITS_PATH + backImageFileName) 
-        imNorm = ic.normalise_image(im) 
+        imNorm = wt.ic.normalise_image(im) 
 #        plt.ion()
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
@@ -430,6 +421,9 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
 #        plt.draw()
         plt.show()
         
-        
-Beams, Optics, Cameras, a, b = xml.read_all('rhea.xml')
-  
+def do_load_spec(specXMLFileName):        
+    global Beams, Optics, Cameras, a, b 
+    
+    Beams, Optics, Cameras, a, b = wt.xml.read_all(specXMLFileName)
+
+#do_load_spec('hermes.xml')

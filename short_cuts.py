@@ -1,21 +1,21 @@
 import wsm
-from constants import *
-import numpy as np
-import xml_parser as xml
+
 import pylab as plt
-import optics as o
+import numpy as np
 
 
 def launch_task(task):  
+    global wsm
     
     if task==1: # Plot solar SED
         a=wsm.do_sed_map(SEDMode = SED_MODE_SOLAR)
         wsm.do_plot_sed_map(a)
         
     elif task==2: #Create and plot CCD map from continuous source 
-        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.9) 
-        b = wsm.do_ccd_map(a, 'hermes.xml')
-        wsm.do_plot_ccd_map(b, canvasSize=10)
+        a = wsm.do_sed_map(minLambda=0.4708, maxLambda=0.4893, deltaLambda=0.00001) 
+        b = wsm.do_ccd_map(a, 'hermes_b.xml')
+        wsm.do_load_spec('hermes_b.xml')
+        wsm.do_plot_ccd_map(b)
     
     elif task==3: #Read a calibration fits file
         '''Extract centroids.
@@ -25,7 +25,8 @@ def launch_task(task):
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         specXMLFileName = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
-        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = True)
+        wsm.do_load_spec(specXMLFileName)
+        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, booAvgAdjust = True, booPlotInitialPoints = True, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
@@ -35,7 +36,7 @@ def launch_task(task):
         diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 6.7, 50, 50] 
         showStats = True
 
-        SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
+        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
         p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCamera, diagTry = diagTry, showStats = showStats)      
         
         #plot fit to see new model
@@ -46,9 +47,9 @@ def launch_task(task):
         #wsm.do_plot_sed_map(SEDMap, title='Hg SED raw input')
         
         #step 1 - Read fits, extract calibration points to c_+outputFileName (n x 5 np.array) 
-        calibrationImageFileName = 'hg_rhea_sample2.fits'
-        outputFileName = 'hg_rhea_sample2.txt'
-        specXMLFileName =  'rhea.xml'
+        calibrationImageFileName = 'hg_rhea_sample1.fits'
+        specXMLFileName = 'rhea.xml'
+        outputFileName = 'hg_rhea_sample1.txt'
         wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName)
         
         #step 2 - find best fit to results extracted
@@ -109,6 +110,12 @@ def launch_task(task):
         plt.ioff()
         plt.show()
         
+    elif task==9: #Create and plot CCD map from continuous source 
+        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.9, deltaLambda=0.0001) 
+        b = wsm.do_ccd_map(a, 'rhea.xml')
+        wsm.do_load_spec('rhea.xml')
+        wsm.do_plot_ccd_map(b, backImage='sky_rhea_sample.fits')
+        
     elif task==100: #random stuff
         a=wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile = 'hg_spectrum.txt')
     #    diag_try = [10,1,1,1,1,1,1,1,1,1,1]
@@ -118,12 +125,12 @@ def launch_task(task):
         print 'Finished'
 
     elif task==101: #Distortion tests
-        inX = np.arange(-50,51)
+        inX = np.arange(-20,21)
         inX = np.tile(inX,len(inX))
         inY = np.sort(inX)
-        K=-0.3
+        K=[-0.8,0,0.5]
         
-        outX, outY = o.distort(inX, inY, K, 20, 20)
+        outX, outY = wsm.wt.distort(inX, inY, K, 4, -7)
         
         plt.scatter(outX, outY)
         plt.show()
@@ -132,7 +139,11 @@ def launch_task(task):
         import wsmtools as wt
         a = wt.xml.find_specXMLFileName('rhea.xml')
         
-launch_task(7)
+    elif task==103: #variable scope
+        import wsm
+        wsm.do_load_spec('rhea.xml')
+        
+launch_task(5)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

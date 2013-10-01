@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <spectrograph name="HERMES">
   <beams>
     <beam>
@@ -8,10 +8,10 @@
   </beams>
   <optical_elements>
     <optical_element type="VPHGrating">
-      <phi param="2">68.0936684</phi>
-      <theta param="3">65.33694031</theta>
-      <alpha param="4">1.19265536</alpha>
-      <bl_period param="9">31.50321471</bl_period>
+      <phi param="2">68.19859051</phi>
+      <theta param="3">0</theta>
+      <alpha param="4">0</alpha>
+      <bl_period param="9">0.26075619</bl_period>
     </optical_element>
   </optical_elements>
   <cameras>
@@ -19,7 +19,7 @@
     <name>blue</name>
     <focalLength param="5">199.13548823</focalLength>
     <width>4096</width>
-    <height>4112</height>
+    <height>4096</height>
     <pSize>15</pSize>
     <minLambda>0.4718</minLambda>
     <maxLambda>0.4903</maxLambda>
