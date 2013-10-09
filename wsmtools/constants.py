@@ -57,12 +57,12 @@ CamerasDistortionCenterY=11
 #File info
 SPEC_PATH = 'spectrographs/'
 SPEC_BKP_PATH = 'spectrographs/bkp/'
+SPECTRUM_PATH = 'spectra/'
 FITS_PATH = 'fits/'
 TEMP_PATH = 'out_files/'
-SEXTRACTOR_PATH = ''
-APP_PATH = '~/workspace/wsm/'
+SEXTRACTOR_PATH = '/usr/local/bin/'
+APP_PATH = '/Users/Carlos/Documents/workspace/wsm/'
 DATA_SIMULATOR_PATH = '/Users/Carlos/Documents/HERMES/dataSimulator-1.64/dataSimulator/'
 DATA_SIMULATOR_INPUT = 'ems/'
-
 
 

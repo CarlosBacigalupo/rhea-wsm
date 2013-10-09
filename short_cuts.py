@@ -12,9 +12,10 @@ def launch_task(task):
         wsm.do_plot_sed_map(a)
         
     elif task==2: #Create and plot CCD map from continuous source 
+        WORKING_PATH = wsm.APP_PATH + 'set_1/'
         a = wsm.do_sed_map(minLambda=0.4708, maxLambda=0.4893, deltaLambda=0.00001) 
-        b = wsm.do_ccd_map(a, 'hermes_b.xml')
-        wsm.do_load_spec('hermes_b.xml')
+        b = wsm.do_ccd_map(a, WORKING_PATH + 'hermes_b.xml')
+        wsm.do_load_spec(WORKING_PATH + 'hermes_b.xml')
         wsm.do_plot_ccd_map(b)
     
     elif task==3: #Read a calibration fits file
@@ -44,24 +45,24 @@ def launch_task(task):
         wsm.do_plot_calibration_points(calibrationImageFileName, calibrationDataFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
     
     elif task==5: #Full loop from calibration file to model
-        #wsm.do_plot_sed_map(SEDMap, title='Hg SED raw input')
         
         #step 1 - Read fits, extract calibration points to c_+outputFileName (n x 5 np.array) 
         calibrationImageFileName = 'hg_rhea_sample1.fits'
         specXMLFileName = 'rhea.xml'
         outputFileName = 'hg_rhea_sample1.txt'
-        wsm.do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName)
+        WORKING_PATH = wsm.APP_PATH + 'set_2/'
+        wsm.do_load_spec(WORKING_PATH + specXMLFileName)
+        wsm.do_read_calibration_file(calibrationImageFileName, WORKING_PATH + specXMLFileName, outputFileName, booPlotInitialPoints = True, booPlotFinalPoints = True)
         
         #step 2 - find best fit to results extracted
-        SEDMap = wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile='hg_spectrum.txt') #create SEDMap from flat Hg emission file
-        p_out = wsm.do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName =  outputFileName)      
-        print p_out
+        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt') #create SEDMap from flat Hg emission file
+        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + specXMLFileName, 'c_' + outputFileName, 0, showStats = True)      
         p_out = p_out[0]
     
         #step 3 - plot the optimised solution
         #p_out=np.array([272. , 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684, 65.33694031, 1.19265536, 31.50321471, 199.13548823])
-        CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, p_try = p_out)
-        wsm.do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, labels = False, canvasSize=1, title = 'Calibration points vs Model comparison ')
+        CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName, p_try = p_out)
+        wsm.do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
     
     elif task==6: #extract spectrum
         a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
@@ -111,20 +112,13 @@ def launch_task(task):
         plt.show()
         
     elif task==9: #Create and plot CCD map from continuous source 
-        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.9, deltaLambda=0.0001) 
-        b = wsm.do_ccd_map(a, 'rhea.xml')
-        wsm.do_load_spec('rhea.xml')
-        wsm.do_plot_ccd_map(b, backImage='sky_rhea_sample.fits')
-        
-    elif task==100: #random stuff
-        a=wsm.do_sed_map(SEDMode=SED_MODE_FILE, specFile = 'hg_spectrum.txt')
-    #    diag_try = [10,1,1,1,1,1,1,1,1,1,1]
-        diag_try = []
-        b = wsm.do_find_fit(a, 'rhea_initial.xml', 'c_hg_rhea_sample1.txt', factor_try = 1.5, diag_try = diag_try)
-        print b
-        print 'Finished'
+        WORKING_PATH = wsm.APP_PATH + 'set_1/'
+        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.9, deltaLambda=0.001) 
+        b = wsm.do_ccd_map(a, WORKING_PATH + 'rhea.xml')
+        wsm.do_load_spec(WORKING_PATH + 'rhea.xml')
+        wsm.do_plot_ccd_map(b, backImage='sky_rhea_sample.fits')        
 
-    elif task==101: #Distortion tests
+    elif task==10: #Distortion tests
         inX = np.arange(-20,21)
         inX = np.tile(inX,len(inX))
         inY = np.sort(inX)
@@ -134,16 +128,10 @@ def launch_task(task):
         
         plt.scatter(outX, outY)
         plt.show()
+        
 
-    elif task==102: #test filename maker
-        import wsmtools as wt
-        a = wt.xml.find_specXMLFileName('rhea.xml')
         
-    elif task==103: #variable scope
-        import wsm
-        wsm.do_load_spec('rhea.xml')
-        
-launch_task(5)
+# launch_task(5)
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

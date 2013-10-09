@@ -9,7 +9,7 @@ def read_p(specXMLFileName):
     p=np.zeros(16)
     
     
-    xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
+    xmldoc = minidom.parse(specXMLFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -35,12 +35,14 @@ def write_p(p, specXMLFileName):
     bkp_time = time.time()
     
     newSpecXMLFileName = find_specXMLFileName(specXMLFileName)
-    os_command = 'cp ' + SPEC_PATH + specXMLFileName + ' ' +  SPEC_PATH + newSpecXMLFileName
+    file_path = specXMLFileName[:-len(specXMLFileName.rsplit('/')[-1])] #take only path
+    
+    os_command = 'cp ' + specXMLFileName + ' ' +  file_path + newSpecXMLFileName
     os.system(os_command)
     
-    specXMLFileName = newSpecXMLFileName
+    specXMLFileName = file_path + newSpecXMLFileName
     
-    xmldoc = minidom.parse(SPEC_PATH + specXMLFileName)
+    xmldoc = minidom.parse(specXMLFileName)
     
     spectrograph=xmldoc.childNodes[0]
     for specElement in spectrograph.childNodes:
@@ -55,7 +57,7 @@ def write_p(p, specXMLFileName):
                                 if ((child.nodeType==1) and child.hasAttribute('param')):
                                     child.firstChild.data = p[int(child.attributes.getNamedItem('param').value)]                     
     
-    f = open(SPEC_PATH + specXMLFileName, 'w')
+    f = open(specXMLFileName, 'w')
     xmldoc.writexml(f)
     
 def read_all(specXMLFileName, p_in = []):
@@ -65,7 +67,7 @@ def read_all(specXMLFileName, p_in = []):
     Beams=np.array([])
     Cameras=np.array([])
     
-    xmldoc = minidom.parse('spectrographs/' + specXMLFileName)
+    xmldoc = minidom.parse(specXMLFileName)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -321,11 +323,15 @@ def read_all(specXMLFileName, p_in = []):
 
 def find_specXMLFileName(specXMLFileName):
     
-    specName = specXMLFileName.rsplit('_v')[0]
-    if len(specName)==len(specXMLFileName):
-        specName = specXMLFileName[:-4]
+    specNameNoPath = specXMLFileName.rsplit('/')[-1] #take only filename (remove path)
+    file_path = specXMLFileName[:-len(specNameNoPath)] #take only path
+    
+    #find if it has a version number
+    specName = specNameNoPath.rsplit('_v')[0] 
+    if len(specName)==len(specNameNoPath):
+        specName = specNameNoPath[:-4]
         
-    a = os.listdir(SPEC_PATH) # retrieves folder contents
+    a = os.listdir(file_path) # retrieves folder contents
     b = np.array(a) # converts to numpy
     b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))] # removes non xml files and keeps only spectrograph spcecific
     
@@ -343,7 +349,7 @@ def find_specXMLFileName(specXMLFileName):
             prevVNumbers[index] = 0
             
     vNumber = max(prevVNumbers) + 1
-    specXMLFileName = specName + '_v' + str(int(vNumber)) + '.xml'
+    specXMLFileName = specName + '_v' + str(int(vNumber)) + '.xml'    #compose final filename 
     
     return specXMLFileName
 

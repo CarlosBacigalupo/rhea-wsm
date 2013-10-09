@@ -72,8 +72,11 @@ def fit_errors(p, args):
     
     CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = ia.read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
 
-    CCDX_m, CCDY_m, lambda_m, Intensity, Order = wsm.do_ccd_map(SEDMap, specXMLFileName, activeCameraIndex, p_try = p)
-    
+    CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, activeCameraIndex, p_try = p)
+    CCDX_m = CCDMap[CCD_MAP_X]
+    CCDY_m = CCDMap[CCD_MAP_Y]
+    CCDLambda_m = CCDMap[CCD_MAP_LAMBDA]
+
 ##    convert model output to CCD coordinates
 #    imWidth = Cameras[activeCameraIndex][CamerasWidth]
 #    imHeight = Cameras[activeCameraIndex][CamerasHeight]
@@ -85,7 +88,7 @@ def fit_errors(p, args):
     x_best = CCDX_c.copy()
     y_best = CCDY_c.copy()
     for k in range(0,len(lambda_c)):
-        ix, = np.where(lambda_c[k] == lambda_m)
+        ix, = np.where(lambda_c[k] == CCDLambda_m)
         if (ix.size == 0):
             x_best[k]=0
             y_best[k]=0
@@ -102,12 +105,38 @@ def fit_errors(p, args):
 #    print np.hstack([(x_best-x)/xSig,(y_best - y)/ySig])
 
     diff_model_calib = np.hstack([(x_best-CCDX_c)/xSig_c,(y_best - CCDY_c)/ySig_c]) #, lambda_c
-
-    return diff_model_cal
+    print np.sum(diff_model_calib)
+    
+    return diff_model_calib
 
 def fitting_stats(fit):
 
 
     print 'Fitting Stats'
-    print fit
+    print ''
+    
+    print 'Solution Array'
+    print fit[0]
+    print ''
+    
+    dict = fit[2]
+    
+    
+    for item in dict:
+        print item 
+        if item=='nfev':
+            desc = 'The number of function calls'
+        elif item=='fvec':
+            desc = 'The function evaluated at the output'
+        elif item=='fjac':
+           desc = 'A permutation of the R matrix of a QR factorization of the final approximate Jacobian matrix, stored column wise. Together with ipvt, the covariance of the estimate can be approximated.'
+        elif item=='ipvt':
+            desc = 'An integer array of length N which defines a permutation matrix, p, such that fjac*p = q*r, where r is upper triangular with diagonal elements of nonincreasing magnitude. Column j of p is column ipvt(j) of the identity matrix.'
+        elif item=='qtf':
+            desc = 'The vector (transpose(q) * fvec)'
+
+        print desc 
+        print dict[item]
+        print
+
 

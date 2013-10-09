@@ -31,10 +31,13 @@ def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, image
         CCDXShifted = CCDX + (avgImageX- avgCCDX)
         CCDYShifted = CCDY + (avgImageY - avgCCDY)
 
+        #These lines plot the model, calibration and model avg corrected points
         import pylab as ppp
         ppp.scatter(CCDX, CCDY, s=50, color="blue", label='Model Data')
         ppp.scatter(imageMapX, imageMapY, s=50, color="red", label='Calibration Data')
         ppp.scatter(CCDXShifted, CCDYShifted, s=50, color="green", label='Average Corrected Model Data')
+        ppp.title('Main Reference Points')
+        ppp.legend()
         ppp.show()
         
         CCDX = CCDXShifted 

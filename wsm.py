@@ -69,7 +69,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
+        SEDMap = np.loadtxt(APP_PATH + SPECTRUM_PATH + spectrumFileName, unpack=True)
         
     elif SEDMode==SED_MODE_CALIB: #From calibration file
         a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
@@ -123,7 +123,7 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     Beams, Optics, Cameras, p, stheta = wt.xml.read_all(specXMLFileName, p_try)   
     
     #hack for RHEA. Needs manual reverse of prism on beam return. todo
-    if specXMLFileName=='rhea.xml':
+    if specXMLFileName[-8:]=='rhea.xml':
         Optics[4][0]=-Optics[0][0]
         Optics[3][0]=-Optics[1][0]  
     
@@ -170,7 +170,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
         
     if showStats: wt.fitting_stats(fit)
     
-    if booWriteP: xml.write_p(fit[0], specXMLFileName)
+    if booWriteP: wt.xml.write_p(fit[0], specXMLFileName)
     
     return fit
 
@@ -227,7 +227,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     f.close()
     
     if booPlotInitialPoints:
-        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration points vs Model comparison ')
+        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
     
     #Find wavelength of detected points (first approximation)
     CCDX = CCDMap[CCD_MAP_X] 
@@ -254,7 +254,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     
     #Plot detected points with assigned wavelengths
     if booPlotFinalPoints:
-        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
+        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
        
     return
 
@@ -422,8 +422,8 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         plt.show()
         
 def do_load_spec(specXMLFileName):        
-    global Beams, Optics, Cameras, a, b 
+    global Beams, Optics, Cameras, a, b
     
     Beams, Optics, Cameras, a, b = wt.xml.read_all(specXMLFileName)
-
+    
 #do_load_spec('hermes.xml')
