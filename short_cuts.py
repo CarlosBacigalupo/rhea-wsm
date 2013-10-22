@@ -65,10 +65,11 @@ def launch_task(task):
         p_out = p_out[0]
     
         #step 3 - plot the optimised solution
-        #p_out=np.array([272. , 90.7157937, 59.6543365, 90.21334551, 89.67646101, 89.82098015, 68.0936684, 65.33694031, 1.19265536, 31.50321471, 199.13548823])
         CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName, p_try = p_out)
         wsm.do_plot_calibration_points(WORKING_PATH +  calibrationImageFileName, WORKING_PATH +  finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
     
+        #step 4 - extract using model
+        
     elif task==6: #extract spectrum
         a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
         wsm.do_plot_sed_map(a)
