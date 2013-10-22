@@ -174,7 +174,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     
     return fit
 
-def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName,  booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
+def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, sexParamFile, finalOutputFileName, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -205,7 +205,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     '''      
     global Beams, Optics, Cameras, a, b 
     
-    if booAnalyse: wt.ia.analyse_image_sex(calibrationImageFileName, outputFileName)
+    if booAnalyse: wt.ia.analyse_image_sex(calibrationImageFileName, sexParamFile, outputFileName)
     
     #Loads coordinate points from calibration output file
     imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
@@ -220,23 +220,23 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
     
     #Create initial output file from calibration data
-    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
+    f = open(finalOutputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
         f.write(out_string) 
     f.close()
     
     if booPlotInitialPoints:
-        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
+        do_plot_calibration_points(calibrationImageFileName, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
     
     #Find wavelength of detected points (first approximation)
     CCDX = CCDMap[CCD_MAP_X] 
     CCDY = CCDMap[CCD_MAP_Y] 
     CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.ia.identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
+    imageMapLambda = wt.ia.identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
     
     #Create temporary output file with all calibration data
-    f = open(TEMP_PATH + 'c_temp_' + outputFileName,'w')
+    f = open(finalOutputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
         f.write(out_string) 
@@ -246,7 +246,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
 #    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName, Cameras)
 
     #Create final output file with all calibration data
-    f = open(TEMP_PATH + 'c_' + outputFileName,'w')
+    f = open(finalOutputFileName,'w')
     for i in range(len(imageMapX)):
         out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
         f.write(out_string) 
@@ -254,7 +254,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     
     #Plot detected points with assigned wavelengths
     if booPlotFinalPoints:
-        do_plot_calibration_points(calibrationImageFileName, 'c_' + outputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
+        do_plot_calibration_points(calibrationImageFileName, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
        
     return
 
@@ -297,7 +297,7 @@ def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         ax1 = fig.add_subplot(111, axisbg = 'black')
 
         if backImage!='':
-            im = pyfits.getdata(FITS_PATH + backImage)
+            im = pyfits.getdata(backImage)
             im[im<0] = 0
             im /= im.max()
             im = np.sqrt(im) #Remove this line for Hg
@@ -367,10 +367,10 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         if imageMapX==[]: return
         
         #Plot
-        hdulist = pyfits.open(FITS_PATH + backImageFileName)
+        hdulist = pyfits.open(backImageFileName)
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
-        im = pyfits.getdata(FITS_PATH + backImageFileName) 
+        im = pyfits.getdata(backImageFileName) 
         imNorm = wt.ic.normalise_image(im) 
 #        plt.ion()
         fig = plt.figure()

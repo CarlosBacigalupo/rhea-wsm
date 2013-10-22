@@ -7,10 +7,10 @@ import matplotlib.cm as cm
 from constants import *
 import image_calibration as ic
 
-def analyse_image_sex(image_filename='test.fits', image_map_filename='image_map.txt'):
+def analyse_image_sex(calibrationImageFileName, sexParamFile, outputFileName):
       
-    os_command = SEXTRACTOR_PATH +'sex ' + FITS_PATH + image_filename + ' -c ' + SPEC_PATH + 'rhea.sex'
-    os_command += ' -CATALOG_NAME ' + TEMP_PATH + image_map_filename
+    os_command = SEXTRACTOR_PATH +'sex ' + calibrationImageFileName + ' -c ' + sexParamFile
+    os_command += ' -CATALOG_NAME ' + outputFileName
 #     os_command = '/usr/local/bin/sex'
 #     os.system(os_command)
     proc = subprocess.Popen([os_command,SEXTRACTOR_PATH], stdout=subprocess.PIPE, shell=True)
@@ -19,7 +19,7 @@ def analyse_image_sex(image_filename='test.fits', image_map_filename='image_map.
     # todo check results of os call and pass err_result
     return err_result, out
 
-def identify_imageMapLambda_auto(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = False):
+def identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = False):
     #todo turn this into a full array calculation
     imageMapLambda = np.zeros(len(imageMapX))
     
@@ -113,8 +113,8 @@ def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, ima
 def load_image_map_sex(image_map_filename='calib_out.txt'):
     imageMapX=imageMapY=[]
 
-    try: image_map_file = open(TEMP_PATH + image_map_filename)
-    except Exception: return [],[]
+    try: image_map_file = open(image_map_filename)
+    except Exception: return [],[],[],[]
     image_map_file_temp = image_map_file.readlines()
 
     for lines in image_map_file_temp:
@@ -140,7 +140,7 @@ def read_full_calibration_data(calibrationDataFileName):
     Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
     '''
 
-    CalibrationMap=np.loadtxt(TEMP_PATH + calibrationDataFileName)
+    CalibrationMap=np.loadtxt(calibrationDataFileName)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
 def extract_order(x,y,image):
