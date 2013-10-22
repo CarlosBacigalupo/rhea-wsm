@@ -145,16 +145,16 @@ def read_full_calibration_data(calibrationDataFileName):
  
 def extract_order(x,y,image):
     
-    #Don't know what these fluxes are yet!
+    
     flux=np.zeros(len(y))
-    flux2=np.zeros(len(y))
-    flux3=np.zeros(len(y))
+#     flux2=np.zeros(len(y))
+#     flux3=np.zeros(len(y))
 
     #Grab image and sizes
-    hdulist = pyfits.open(FITS_PATH + image)
+    hdulist = pyfits.open(image)
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-    im = pyfits.getdata(FITS_PATH + image)  
+    im = pyfits.getdata(image)  
 #    x += imWidth/2  #correction for pixel number
 #    y += imHeight/2 
 

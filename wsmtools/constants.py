@@ -2,8 +2,8 @@ global Beams, Optics, Cameras
 
 
 
-#Can plot orders from  146 to 73 (about 390 to 795nm). If the wavelength range just above does not cover the orders selected here, this code currently fails!
-minOrder=73
+#Can plot orders from  146 to 73 (about 390 to 795nm). 
+minOrder=67
 maxOrder=146
 deltaOrder=1
 

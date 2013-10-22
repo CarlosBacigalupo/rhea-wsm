@@ -103,7 +103,10 @@ def fit_errors(p, args):
 #    print x_best - x
 #    print y_best - y
 #    print np.hstack([(x_best-x)/xSig,(y_best - y)/ySig])
-
+    xSig_c[xSig_c==0]=1
+    ySig_c[ySig_c==0]=1
+    
+    
     diff_model_calib = np.hstack([(x_best-CCDX_c)/xSig_c,(y_best - CCDY_c)/ySig_c]) #, lambda_c
     print np.sum(diff_model_calib)
     

@@ -16,7 +16,7 @@ from astLib import astSED #Astro Libraries
 from wsmtools.constants import *
 import wsmtools as wt
 
-def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName=''): 
+def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName='', minI=0, maxI=1e9): 
     '''
     Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
     
@@ -84,12 +84,16 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
                 
     #Normalize the intensity  
     if intNormalize!=0:    
-        fluxRange=(max(SEDMap[SEDMapLambda])-min(SEDMap[SEDMapLambda]))
+        fluxRange=(max(SEDMap[SEDMapIntensity])-min(SEDMap[SEDMapIntensity]))
         
         if fluxRange==0:
             SEDMap = np.array((SEDMap[SEDMapLambda], np.ones(SEDMap[SEDMapLambda].size)))  
         else:
             SEDMap = np.array((SEDMap[SEDMapLambda], (SEDMap[SEDMapIntensity]-min(SEDMap[SEDMapIntensity]))/(fluxRange+1) ))
+
+    #Remove rows outside the intensity range
+    SEDMap = np.array([SEDMap[0][SEDMap[1]>=minI],SEDMap[1][SEDMap[1]>=minI]])     
+    SEDMap = np.array([SEDMap[0][SEDMap[1]<=maxI],SEDMap[1][SEDMap[1]<=maxI]])     
        
     return SEDMap
 
@@ -174,7 +178,7 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     
     return fit
 
-def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, sexParamFile, finalOutputFileName, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
+def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, sexParamFile, finalOutputFileName, SEDMap, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -212,9 +216,6 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     if imageMapX == []: return
     imageMapX -= int(Cameras[0][CamerasWidth])/2
     imageMapY -= int(Cameras[0][CamerasHeight])/2
-    
-    #Create SEDMap from Mercury emission
-    SEDMap = do_sed_map(SEDMode=SED_MODE_FILE, spectrumFileName='hg_spectrum.txt')
     
     #Create the model based on default parameters
     CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
@@ -332,12 +333,31 @@ def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         
         plt.show()
 
+def do_plot_flux(flux, wavelength):
+        
+        colorTable = np.array((wt.wav2RGB(wavelength, flux))) 
+        bar_width = (max(wavelength) - min(wavelength)) / 100
+
+         
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111, axisbg='black')
+        ax1.bar(wavelength, flux, width=bar_width, color=colorTable , edgecolor='none')
+        
+        plt.ylabel('Intensity')
+        plt.xlabel('Wavelength ($\mu$m)')
+        plt.axis([min(wavelength) ,max(wavelength)*1.01 ,min(flux) , max(flux)])
+
+        if title=='':title = 'Flux'
+        plt.title(title)        
+        
+        plt.show()
+
 def do_plot_sed_map(SEDMap, title='', point_density=1):
         
         SEDMap = SEDMap[:,::point_density]
         
         colorTable = np.array((wt.wav2RGB(SEDMap[SEDMapLambda], SEDMap[SEDMapIntensity]))) 
-        bar_width = (max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / 100
+        bar_width = 0.0001 #(max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / 100
 
          
         fig = plt.figure()
