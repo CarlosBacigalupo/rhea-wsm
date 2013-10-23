@@ -266,7 +266,7 @@ def do_extract_order(CCDMap, nOrder, image):
     CCDLambda = CCDMap[CCD_MAP_LAMBDA]
     CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
     CCDOrder=CCDMap[CCD_MAP_ORDER]
-
+    
     xPlot = CCDX[CCDOrder==nOrder]
     yPlot = CCDY[CCDOrder==nOrder]
     LambdaPlot = CCDLambda[CCDOrder==nOrder]
@@ -279,6 +279,44 @@ def do_extract_order(CCDMap, nOrder, image):
     flux = wt.ia.extract_order(newX, newY, image)
     
     return flux, newLambdas
+
+def do_export_CCDMap(CCDMap, scienceFile, outputFile):
+    
+    CCDX = CCDMap[CCD_MAP_X]
+    CCDY = CCDMap[CCD_MAP_Y]
+    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
+    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
+    CCDOrder=CCDMap[CCD_MAP_ORDER]
+
+    hdulist = pyfits.open(scienceFile)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+
+    f = open(outputFile,'w')
+    outputText = str('Order') + ' ' +  str('Y') + ' ' + str('X') + ' ' + str('Wavelength')
+    f.write(str(outputText) + '\n')     
+    
+    a = np.unique(CCDOrder)
+    for nOrder in a:
+        
+        print nOrder
+        
+        xPlot = CCDX[CCDOrder==nOrder]
+        yPlot = CCDY[CCDOrder==nOrder]
+        LambdaPlot = CCDLambda[CCDOrder==nOrder]
+        
+        fLambda = interpolate.interp1d(yPlot, LambdaPlot)
+        fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+        
+
+        newX, newY, newLambdas = wt.calculate_from_Y(range(-imHeight/2, imHeight/2), fX, fLambda)
+        
+        for i in range(len(newY)):
+            outputText = str(nOrder) + ' ' +  str(newY[i]) + ' ' + str(newX[i]) + ' ' + str(newLambdas[i])
+            f.write(str(outputText) + '\n') 
+            
+    f.close() 
+
 
 def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         

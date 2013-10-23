@@ -2,7 +2,7 @@ import wsm
 
 import pylab as plt
 import numpy as np
-
+import pyfits
 
 def launch_task(task):  
     global wsm
@@ -59,40 +59,47 @@ def launch_task(task):
 
         calibrationImageFileName = 'thar.fit'
         specXMLFileName = 'rhea.xml'
-        outputFileName = 'hg_rhea2.txt'
+        outputFileName = 'hg_rhea.txt'
         sexParamFile = 'rhea.sex'
-        finalOutputFileName = 'hg_rhea2.txt'
+        finalOutputFileName = 'hg_rhea.txt'
         scienceFile = 'thar.fit'
         WORKING_PATH = wsm.APP_PATH + 'set_6/'
 
         #step 1 - Read fits, extract calibration points to finalOutputFileName (n x 5 np.array) 
         wsm.do_load_spec(WORKING_PATH + specXMLFileName)
         #Create SEDMap from hgar emission
-#         SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
-#         SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
-#         SEDMap = np.hstack((SEDMap1, SEDMap2))
-        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='thar_spectrum.txt', 
-                                intNormalize=1, minI=0.2, maxLambda=1) #create SEDMap from ar emission file
+        SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
+        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
+        SEDMap = np.hstack((SEDMap1, SEDMap2))
         
-        wsm.do_read_calibration_file(WORKING_PATH + calibrationImageFileName, WORKING_PATH + specXMLFileName, 
-                                     WORKING_PATH +  outputFileName, WORKING_PATH +  sexParamFile, 
-                                     WORKING_PATH +  finalOutputFileName, SEDMap,
-                                     booPlotInitialPoints = True, booPlotFinalPoints = True)
+#         wsm.do_read_calibration_file(WORKING_PATH + calibrationImageFileName, WORKING_PATH + specXMLFileName, 
+#                                      WORKING_PATH +  outputFileName, WORKING_PATH +  sexParamFile, 
+#                                      WORKING_PATH +  finalOutputFileName, SEDMap,
+#                                      booPlotInitialPoints = True, booPlotFinalPoints = True)
         
         #step 2 - find best fit to results extracted
-        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + specXMLFileName, WORKING_PATH +  finalOutputFileName, 0, showStats = True)      
+#         diagTry = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        diagTry = [1,1,1,1,1,1,1,1,1,1,1,0.001,0.1,0.1,1,0.0001]
+        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + specXMLFileName, WORKING_PATH +  finalOutputFileName, 0, diagTry = diagTry, showStats = True)      
         p_out = p_out[0]
+        
     
         #step 3 - plot the optimised solution
-        CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName)#, p_try = p_out)
-        wsm.do_plot_calibration_points(WORKING_PATH +  scienceFile, WORKING_PATH +  finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
+#         CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName, p_try = p_out)
+#         wsm.do_plot_calibration_points(WORKING_PATH +  calibrationImageFileName, WORKING_PATH +  finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
+        
     
         #step 4 - extract using model
-        SEDMap = wsm.do_sed_map()
+#         SEDMap = wsm.do_sed_map()
+        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='thar_spectrum.txt', 
+                                intNormalize=1, maxLambda=1) #create SEDMap from ar emission file
+
         CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName, p_try = p_out)  
-        wsm.do_plot_ccd_map(CCDMap, backImage = WORKING_PATH + scienceFile)
-        flux = wsm.do_extract_order(CCDMap , 87, WORKING_PATH + scienceFile)
-        wsm.do_plot_flux(flux)
+        wsm.do_plot_ccd_map(CCDMap, backImage = WORKING_PATH + calibrationImageFileName)
+#         flux = wsm.do_extract_order(CCDMap , 87, WORKING_PATH + scienceFile)
+#         wsm.do_plot_flux(flux)
+#         outputFile = WORKING_PATH + 'thar_map.txt'
+#         wsm.do_export_CCDMap(CCDMap, WORKING_PATH + scienceFile, outputFile)  
         
     elif task==6: #extract spectrum
         a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
@@ -164,6 +171,90 @@ def launch_task(task):
        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='thar_spectrum.txt') #create SEDMap from ar emission file
        wsm.do_plot_sed_map(SEDMap)
         
+    elif task==12: #cross correlation test
+        from mpl_toolkits.mplot3d.axes3d import Axes3D
+        from scipy.signal import correlate2d
+        
+        calibrationImageFileName = 'hgar.fit'
+        specXMLFileName = 'rhea.xml'
+        outputFileName = 'hg_rhea2.txt'
+        sexParamFile = 'rhea.sex'
+        finalOutputFileName = 'hg_rhea2.txt'
+        scienceFile = 'thar.fit'
+        WORKING_PATH = wsm.APP_PATH + 'set_6/'
+
+        wsm.do_load_spec(WORKING_PATH + specXMLFileName)
+        
+        #Create SEDMap from hgar emission
+        SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
+        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
+        SEDMap = np.hstack((SEDMap1, SEDMap2))
+#        SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='thar_spectrum.txt', 
+#                                 intNormalize=1, minI=0.2, maxLambda=1) #create SEDMap from ar emission file
+        
+        
+        CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + specXMLFileName)#, p_try = p_out)
+        
+        hdulist = pyfits.open(WORKING_PATH + calibrationImageFileName)
+        im1Width = hdulist[0].header['NAXIS1']
+        im1Height = hdulist[0].header['NAXIS2']
+        im1Width_range = range(im1Width)
+        im1Height_range = range(im1Height)
+        X1,Y1  = np.meshgrid(im1Width_range,im1Height_range)
+        im1 = pyfits.getdata(WORKING_PATH + calibrationImageFileName)  
+        
+#         wsm.do_read_calibration_file(WORKING_PATH + calibrationImageFileName, WORKING_PATH + specXMLFileName, 
+#                                      WORKING_PATH +  outputFileName, WORKING_PATH +  sexParamFile, 
+#                                      WORKING_PATH +  finalOutputFileName, SEDMap,
+#                                      booPlotInitialPoints = True, booPlotFinalPoints = True)
+        #Create empty grid
+#         im2Width = max(CCDMap[wsm.CCD_MAP_X]) - min(CCDMap[wsm.CCD_MAP_X]) 
+#         im2Height = max(CCDMap[wsm.CCD_MAP_Y]) - min(CCDMap[wsm.CCD_MAP_Y])  
+        im2Width_range = range( int(min(CCDMap[wsm.CCD_MAP_X])), int(max(CCDMap[wsm.CCD_MAP_X])))
+        im2Height_range = range( int(min(CCDMap[wsm.CCD_MAP_Y])), int(max(CCDMap[wsm.CCD_MAP_Y])))        
+        X2,Y2  = np.meshgrid(im2Width_range,im2Height_range)
+        im2 = np.zeros()
+        
+        
+#         for i in range(len(CCDMap[CCD_MAP_X])):
+        sigma = 2.
+        b = 2*sigma**2       
+        xCent=50.
+        yCent=50.
+        im2 = np.exp(-((X2-xCent)**2/b + (Y2-yCent)**2/b))
+        
+#         xCent=100.
+#         yCent=100.
+#         Z2 = np.exp(-((X2-xCent)**2/b + (Y2-yCent)**2/b))
+        a =correlate2d(im1,im2, mode='same')
+#         print a
+#         print a.shape
+#         print np.argmax(np.max(a,axis=0))+1
+#         print np.argmax(np.max(a,axis=1))+1
+#         phi_m = linspace(0, 2*pi, 100)
+#         phi_p = linspace(0, 2*pi, 100)
+#         X,Y = meshgrid(phi_p, phi_m)
+#         Z = flux_qubit_potential(X, Y)/flux_qubit_potential(X, Y)
+#         
+#         fig, ax = plt.subplots()
+#         
+#         p = ax.pcolor(X/(2*pi), Y/(2*pi), Z, cmap=cm.RdBu, vmin=abs(Z).min(), vmax=abs(Z).max())
+#         cb = fig.colorbar(p, ax=ax)
+    
+        fig = plt.figure(figsize=(12,6))
+
+        ax = fig.add_subplot(1,3,1, projection='3d')
+        ax.plot_surface(X1, Y1, im1, rstride=4, cstride=4, alpha=0.25)
+        
+        ax = fig.add_subplot(1,3,2, projection='3d')
+        ax.plot_surface(X2, Y2, im2, rstride=4, cstride=4, alpha=0.25)
+        
+#         ax = fig.add_subplot(1,3,3, projection='3d')
+#         ax.contour(range(a.shape[0]),range(a.shape[1]), a)
+
+        plt.show()
+
+
 launch_task(5)
 
 
