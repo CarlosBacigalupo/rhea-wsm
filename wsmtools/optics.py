@@ -36,8 +36,8 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
     
     pixelSize = float(Camera[CamerasPSize])
     fLength = float(Camera[CamerasFLength])
-    blaze_angle = stheta #Approximately np.arctan(2) #todo check how to make this general
-#     blaze_angle = np.arctan(2)  #Approximately np.arctan(2) #todo check how to make this general
+    blazeAngle = stheta #Approximately np.arctan(2) #todo check how to make this general
+#     blazeAngle = np.arctan(2)  #Approximately np.arctan(2) #todo check how to make this general
 
     #Retrieves max and min lambdas for intensity calculation
     minLambda=min(SEDMap[SEDMapLambda])
@@ -65,12 +65,12 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
 #                GPeriod=31.50321471
                 
                 #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-#                 if (Lambda >= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blaze_angle)/(nOrder-1))):
-                if (abs(Lambda*(nOrder+1)) >= abs(2*GPeriod*np.sin(blaze_angle)) and abs(Lambda*(nOrder-1)) <= abs(2*GPeriod*np.sin(blaze_angle))):
+#                 if (Lambda >= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder-1))):
+                if (abs(Lambda*(nOrder+1)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-1)) <= abs(2*GPeriod*np.sin(blazeAngle))):
 
                     #Computes the unit vector that results from the optical system for a given wavelength and order
                     #This is the actual tracing of the ray for each wavelength             
-                    v, isValid, beamID = ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle)
+                    v, isValid, beamID = ray_trace_flex(Beam, Lambda, nOrder, Optics, blazeAngle)
 
                     
                     if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
@@ -97,7 +97,7 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
        
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
 
-def ray_trace_flex(Beam, Lambda, nOrder, Optics, blaze_angle):
+def ray_trace_flex(Beam, Lambda, nOrder, Optics, blazeAngle):
     ''' Traces a beam through the spectrograph. 
     Spectrograph frame of reference, from the opposite end of the camera looking at the camera
     x=to the right, y=to camera, z=up

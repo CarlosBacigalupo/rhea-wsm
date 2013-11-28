@@ -28,7 +28,7 @@ import pylab as plt
 import xml_parser as xml
 import image_calibration as ic
 import image_analysis as ia
-from optics import *
+import optics
 from constants import *
 import wsm
 
@@ -66,13 +66,13 @@ def fit_errors(p, args):
     '''
     
     SEDMap = args[0]
-    specXMLFileName = args[1]
+    modelXMLFile = args[1]
     calibrationDataFileName = args[2]
     activeCameraIndex = args[3]    
     
     CCDX_c, CCDY_c, lambda_c, xSig_c, ySig_c = ia.read_full_calibration_data(calibrationDataFileName) #reads calibration points coordinates
 
-    CCDMap = wsm.do_ccd_map(SEDMap, specXMLFileName, activeCameraIndex, p_try = p)
+    CCDMap = wsm.do_ccd_map(SEDMap, modelXMLFile, activeCameraIndex, p_try = p)
     CCDX_m = CCDMap[CCD_MAP_X]
     CCDY_m = CCDMap[CCD_MAP_Y]
     CCDLambda_m = CCDMap[CCD_MAP_LAMBDA]

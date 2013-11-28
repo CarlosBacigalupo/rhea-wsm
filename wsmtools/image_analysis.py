@@ -7,9 +7,9 @@ import matplotlib.cm as cm
 from constants import *
 import image_calibration as ic
 
-def analyse_image_sex(calibrationImageFileName, sexParamFile, outputFileName):
+def analyse_image_sex(arcFile, sexParamFile, outputFileName):
       
-    os_command = SEXTRACTOR_PATH +'sex ' + calibrationImageFileName + ' -c ' + sexParamFile
+    os_command = SEXTRACTOR_PATH +'sex ' + arcFile + ' -c ' + sexParamFile
     os_command += ' -CATALOG_NAME ' + outputFileName
 #     os_command = '/usr/local/bin/sex'
 #     os.system(os_command)

@@ -4,12 +4,12 @@ from constants import *
 import os, time, sys
 import wsmtools as wt
 
-def read_p(specXMLFileName):
+def read_p(modelXMLFile):
     
     p=np.zeros(16)
     
     
-    xmldoc = minidom.parse(specXMLFileName)
+    xmldoc = minidom.parse(modelXMLFile)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -30,19 +30,19 @@ def read_p(specXMLFileName):
 
     return p
 
-def write_p(p, specXMLFileName):
+def write_p(p, modelXMLFile):
     
     bkp_time = time.time()
     
-    newSpecXMLFileName = find_specXMLFileName(specXMLFileName)
-    file_path = specXMLFileName[:-len(specXMLFileName.rsplit('/')[-1])] #take only path
+    newmodelXMLFile = find_modelXMLFile(modelXMLFile)
+    file_path = modelXMLFile[:-len(modelXMLFile.rsplit('/')[-1])] #take only path
     
-    os_command = 'cp ' + specXMLFileName + ' ' +  file_path + newSpecXMLFileName
+    os_command = 'cp ' + modelXMLFile + ' ' +  file_path + newmodelXMLFile
     os.system(os_command)
     
-    specXMLFileName = file_path + newSpecXMLFileName
+    modelXMLFile = file_path + newmodelXMLFile
     
-    xmldoc = minidom.parse(specXMLFileName)
+    xmldoc = minidom.parse(modelXMLFile)
     
     spectrograph=xmldoc.childNodes[0]
     for specElement in spectrograph.childNodes:
@@ -57,17 +57,17 @@ def write_p(p, specXMLFileName):
                                 if ((child.nodeType==1) and child.hasAttribute('param')):
                                     child.firstChild.data = p[int(child.attributes.getNamedItem('param').value)]                     
     
-    f = open(specXMLFileName, 'w')
+    f = open(modelXMLFile, 'w')
     xmldoc.writexml(f)
     
-def read_all(specXMLFileName, p_in = []):
+def read_all(modelXMLFile, p_in = []):
 
     p=np.zeros(16)
     Optics=np.array([])
     Beams=np.array([])
     Cameras=np.array([])
     
-    xmldoc = minidom.parse(specXMLFileName)
+    xmldoc = minidom.parse(modelXMLFile)
     
     
 #    optElements = xmldoc.getElementsByTagName('optical_element') 
@@ -321,10 +321,10 @@ def read_all(specXMLFileName, p_in = []):
 
     return Beams, Optics, Cameras, p, np.radians(float(stheta))
 
-def find_specXMLFileName(specXMLFileName):
+def find_modelXMLFile(modelXMLFile):
     
-    specNameNoPath = specXMLFileName.rsplit('/')[-1] #take only filename (remove path)
-    file_path = specXMLFileName[:-len(specNameNoPath)] #take only path
+    specNameNoPath = modelXMLFile.rsplit('/')[-1] #take only filename (remove path)
+    file_path = modelXMLFile[:-len(specNameNoPath)] #take only path
     
     #find if it has a version number
     specName = specNameNoPath.rsplit('_v')[0] 
@@ -349,7 +349,7 @@ def find_specXMLFileName(specXMLFileName):
             prevVNumbers[index] = 0
             
     vNumber = max(prevVNumbers) + 1
-    specXMLFileName = specName + '_v' + str(int(vNumber)) + '.xml'    #compose final filename 
+    modelXMLFile = specName + '_v' + str(int(vNumber)) + '.xml'    #compose final filename 
     
-    return specXMLFileName
+    return modelXMLFile
 

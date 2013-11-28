@@ -7,6 +7,7 @@ import bisect as bis
 import matplotlib.cm as cm
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt    
+import interactive_plot as ip
 from scipy.optimize.minpack import leastsq
 from scipy.optimize import * #least square package
 from scipy import interpolate #interpolate function
@@ -69,7 +70,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = SEDMap.transpose()
                                   
     elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.loadtxt(APP_PATH + SPECTRUM_PATH + spectrumFileName, unpack=True)
+        SEDMap = np.loadtxt(spectrumFileName, unpack=True)
         
     elif SEDMode==SED_MODE_CALIB: #From calibration file
         a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
@@ -97,7 +98,7 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
        
     return SEDMap
 
-def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
+def do_ccd_map(SEDMap ,modelXMLFile, activeCamera=0, p_try = []):
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -124,10 +125,10 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     '''   
             
     #Reads xml file
-    Beams, Optics, Cameras, p, stheta = wt.xml.read_all(specXMLFileName, p_try)   
+    Beams, Optics, Cameras, p, stheta = wt.xml.read_all(modelXMLFile, p_try)   
     
     #hack for RHEA. Needs manual reverse of prism on beam return. todo
-    if specXMLFileName[-8:]=='rhea.xml':
+    if modelXMLFile[-8:]=='rhea.xml':
         Optics[4][0]=-Optics[0][0]
         Optics[3][0]=-Optics[1][0]  
     
@@ -138,11 +139,11 @@ def do_ccd_map(SEDMap ,specXMLFileName, activeCamera=0, p_try = []):
     K = [p[11], p[12], p[13]]
     Xc = p[14]
     Yc = p[15]
-    CCDX, CCDY = wt.distort(CCDX, CCDY, K, Xc, Yc)
+    CCDX, CCDY = wt.optics.distort(CCDX, CCDY, K, Xc, Yc)
     
     return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
 
-def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
+def do_find_fit(SEDMap, modelXMLFile, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
     '''
     Wrapper for reading the calibration file, and launching the fitting function
        
@@ -164,21 +165,21 @@ def do_find_fit(SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIn
     #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
     #fit is the output, which is the ideal p vector.
     
-    if p_try==[]: p_try = wt.xml.read_p(specXMLFileName)
+    if p_try==[]: p_try = wt.xml.read_p(modelXMLFile)
     if diagTry==[]: diagTry = np.ones(len(p_try))
     
     while True:
-        fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, specXMLFileName, calibrationDataFileName, activeCameraIndex], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
+        fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, modelXMLFile, calibrationDataFileName, activeCameraIndex], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
         if fit[-1] != 0: #workaround to avoid inconsistent message 'wrong input parameters(error code 0)'
             break
         
     if showStats: wt.fitting_stats(fit)
     
-    if booWriteP: wt.xml.write_p(fit[0], specXMLFileName)
+    if booWriteP: wt.xml.write_p(fit[0], modelXMLFile)
     
     return fit
 
-def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFileName, sexParamFile, finalOutputFileName, SEDMap, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
+def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile, finalOutputFileName, SEDMap, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
     '''
     Extracts peaks with sextractor
     Imports found points into arrays
@@ -188,7 +189,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
        
     Parameters
     ----------
-    calibrationImageFileName : string
+    arcFile : string
         Name of the calibration file (fits) 
 
     specFileName : string
@@ -209,7 +210,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     '''      
     global Beams, Optics, Cameras, a, b 
     
-    if booAnalyse: wt.ia.analyse_image_sex(calibrationImageFileName, sexParamFile, outputFileName)
+    if booAnalyse: wt.ia.analyse_image_sex(arcFile, sexParamFile, outputFileName)
     
     #Loads coordinate points from calibration output file
     imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
@@ -218,7 +219,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     imageMapY -= int(Cameras[0][CamerasHeight])/2
     
     #Create the model based on default parameters
-    CCDMap = do_ccd_map(SEDMap, specXMLFileName)  
+    CCDMap = do_ccd_map(SEDMap, modelXMLFile)  
     
     #Create initial output file from calibration data
     f = open(finalOutputFileName,'w')
@@ -228,7 +229,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     f.close()
     
     if booPlotInitialPoints:
-        do_plot_calibration_points(calibrationImageFileName, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
+        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
     
     #Find wavelength of detected points (first approximation)
     CCDX = CCDMap[CCD_MAP_X] 
@@ -244,7 +245,7 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     f.close()
 
     #Correct/confirm found wavelengths
-#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, calibrationImageFileName, Cameras)
+#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, arcFile, Cameras)
 
     #Create final output file with all calibration data
     f = open(finalOutputFileName,'w')
@@ -255,10 +256,122 @@ def do_read_calibration_file(calibrationImageFileName, specXMLFileName, outputFi
     
     #Plot detected points with assigned wavelengths
     if booPlotFinalPoints:
-        do_plot_calibration_points(calibrationImageFileName, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
+        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
        
     return
 
+def do_create_calibFile(arcFile, modelXMLFile, calibFile, arcLinesFile):
+    '''
+    Extracts peaks with sextractor
+    Imports found points into arrays
+    Plots found points on image
+    Assigns initial wavelength based on proximity
+    Asks for user input to refine assignment
+       
+    Parameters
+    ----------
+    arcFile : string
+        Name of the calibration file (fits) 
+
+    modelXMLFile : string
+        Name of the model file (xml)
+        
+    calibFile : boolean
+    
+    booPlotInitialPoints : boolean
+
+
+
+    Returns
+    -------
+    nottin
+      
+    Notes
+    -----
+    '''      
+    global Beams, Optics, Cameras, a, b 
+    
+    SEDMap = do_sed_map( SEDMode = SED_MODE_FILE, spectrumFileName = arcLinesFile)
+    
+    CCDMap = do_ccd_map(SEDMap, modelXMLFile)
+    
+
+    
+    X=CCDMap 
+    xs = np.mean(X, axis=1)
+    ys = np.std(X, axis=1)
+    
+    
+    p = ip.PointBrowser(xs,ys)
+
+    p.userfunc = plot2
+    
+#     xlabel('$\mu$')
+#     ylabel('$\sigma$')
+
+    p.update()
+    
+    #Loads coordinate points from calibration output file
+    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
+    if imageMapX == []: return
+    imageMapX -= int(Cameras[0][CamerasWidth])/2
+    imageMapY -= int(Cameras[0][CamerasHeight])/2
+    
+    #Create the model based on default parameters
+    CCDMap = do_ccd_map(SEDMap, modelXMLFile)  
+    
+    #Create initial output file from calibration data
+    f = open(finalOutputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
+        f.write(out_string) 
+    f.close()
+    
+    if booPlotInitialPoints:
+        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
+    
+    #Find wavelength of detected points (first approximation)
+    CCDX = CCDMap[CCD_MAP_X] 
+    CCDY = CCDMap[CCD_MAP_Y] 
+    CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
+    imageMapLambda = wt.ia.identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
+    
+    #Create temporary output file with all calibration data
+    f = open(finalOutputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
+        f.write(out_string) 
+    f.close()
+
+    #Correct/confirm found wavelengths
+#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, arcFile, Cameras)
+
+    #Create final output file with all calibration data
+    f = open(finalOutputFileName,'w')
+    for i in range(len(imageMapX)):
+        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
+        f.write(out_string) 
+    f.close()   
+    
+    #Plot detected points with assigned wavelengths
+    if booPlotFinalPoints:
+        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
+       
+    return
+
+def plot2(dataind):
+    fig2 = plt.figure(2)
+    ax2 = fig2.add_subplot(111)
+
+    ax2.cla()
+    ax2.plot(X[dataind])
+
+    ax2.text(0.05, 0.9, 'mu=%1.3f\nsigma=%1.3f'%(xs[dataind], ys[dataind]),
+             transform=ax2.transAxes, va='top')
+    ax2.set_ylim(-0.5, 1.5)
+
+    fig2.canvas.draw()
+        
 def do_extract_order(CCDMap, nOrder, image):
     
     CCDX = CCDMap[CCD_MAP_X]
@@ -316,7 +429,6 @@ def do_export_CCDMap(CCDMap, scienceFile, outputFile):
             f.write(str(outputText) + '\n') 
             
     f.close() 
-
 
 def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         
@@ -479,9 +591,9 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
 #        plt.draw()
         plt.show()
         
-def do_load_spec(specXMLFileName):        
+def do_load_spec(modelXMLFile):        
     global Beams, Optics, Cameras, a, b
     
-    Beams, Optics, Cameras, a, b = wt.xml.read_all(specXMLFileName)
+    Beams, Optics, Cameras, a, b = wt.xml.read_all(modelXMLFile)
     
 #do_load_spec('hermes.xml')
