@@ -7,7 +7,7 @@ import bisect as bis
 import matplotlib.cm as cm
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt    
-import interactive_plot as ip
+# import interactive_plot as ip
 from scipy.optimize.minpack import leastsq
 from scipy.optimize import * #least square package
 from scipy import interpolate #interpolate function
@@ -69,8 +69,8 @@ def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda
         SEDMap = np.array([tempA, tempB])    
         SEDMap = SEDMap.transpose()
                                   
-    elif SEDMode==SED_MODE_FILE: #From flat file
-        SEDMap = np.loadtxt(spectrumFileName, unpack=True)
+    elif SEDMode==SED_MODE_FILE: #From line atlas
+        SEDMap = np.loadtxt(SPECTRUM_PATH + spectrumFileName, unpack=True)
         
     elif SEDMode==SED_MODE_CALIB: #From calibration file
         a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
@@ -128,9 +128,9 @@ def do_ccd_map(SEDMap ,modelXMLFile, activeCamera=0, p_try = []):
     Beams, Optics, Cameras, p, stheta = wt.xml.read_all(modelXMLFile, p_try)   
     
     #hack for RHEA. Needs manual reverse of prism on beam return. todo
-    if modelXMLFile[-8:]=='rhea.xml':
-        Optics[4][0]=-Optics[0][0]
-        Optics[3][0]=-Optics[1][0]  
+#     if modelXMLFile[-8:]=='rhea.xml':
+    Optics[4][0]=-Optics[0][0]
+    Optics[3][0]=-Optics[1][0]  
     
     #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
     CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID = wt.optics.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta)
@@ -175,8 +175,8 @@ def do_find_fit(SEDMap, modelXMLFile, calibrationDataFileName, activeCameraIndex
         
     if showStats: wt.fitting_stats(fit)
     
-    if booWriteP: wt.xml.write_p(fit[0], modelXMLFile)
-    
+    if booWriteP: 
+        wt.xml.write_p(fit[0], modelXMLFile)
     return fit
 
 def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile, finalOutputFileName, SEDMap, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
@@ -212,10 +212,12 @@ def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile
     
     if booAnalyse: wt.ia.analyse_image_sex(arcFile, sexParamFile, outputFileName)
     
-    #Loads coordinate points from calibration output file
+    #Loads coordinate points from calibration sextractor output file
     imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
+    
+    # shifts to center of the chip (COC) coords
     if imageMapX == []: return
-    imageMapX -= int(Cameras[0][CamerasWidth])/2
+    imageMapX -= int(Cameras[0][CamerasWidth])/2 
     imageMapY -= int(Cameras[0][CamerasHeight])/2
     
     #Create the model based on default parameters
@@ -228,7 +230,7 @@ def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile
         f.write(out_string) 
     f.close()
     
-    if booPlotInitialPoints:
+    if booPlotInitialPoints: #plot model vs. calibration points for sanity check
         do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
     
     #Find wavelength of detected points (first approximation)
@@ -254,7 +256,7 @@ def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile
         f.write(out_string) 
     f.close()   
     
-    #Plot detected points with assigned wavelengths
+    #Plot detected points with assigned wavelengths for check
     if booPlotFinalPoints:
         do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
        
@@ -372,7 +374,7 @@ def plot2(dataind):
 
     fig2.canvas.draw()
         
-def do_extract_order(CCDMap, nOrder, image):
+def do_extract_order(CCDMap, nOrder, image, booShowImage = False):
     
     CCDX = CCDMap[CCD_MAP_X]
     CCDY = CCDMap[CCD_MAP_Y]
@@ -387,11 +389,77 @@ def do_extract_order(CCDMap, nOrder, image):
     fLambda = interpolate.interp1d(yPlot, LambdaPlot)
     fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
     
-    newX, newY, newLambdas = wt.calculate_from_Y(CCDY, fX, fLambda)
+    hdulist = pyfits.open(image)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
     
-    flux = wt.ia.extract_order(newX, newY, image)
+    if ((min(yPlot)>-imHeight/2) or (max(yPlot)<imHeight/2)):
+        yRange = yPlot
+    else:
+        yRange = range(-imHeight/2,imHeight/2)
     
-    return flux, newLambdas
+    newX, newY, newLambdas = wt.calculate_from_Y(yRange, fX, fLambda)
+    
+
+    #reduce y, x to fit image
+#     newLambdas = newLambdas[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
+#     newX = newX[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
+#     newY = newY[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
+    
+    flux = wt.ia.extract_order(newX, newY, image, booShowImage)
+    
+    return newLambdas, flux 
+
+def do_extract_full_spectrum(CCDMap, image):
+    
+    CCDX = CCDMap[CCD_MAP_X]
+    CCDY = CCDMap[CCD_MAP_Y]
+    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
+    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
+    CCDOrder=CCDMap[CCD_MAP_ORDER]
+    
+    hdulist = pyfits.open(image)
+    imWidth = hdulist[0].header['NAXIS1']
+    imHeight = hdulist[0].header['NAXIS2']
+    
+    specOrder = []
+    
+    for nOrder in range(100,102): #range(min(CCDOrder), max(CCDOrder)): #range(90,93):
+        print 'Order ' + str(nOrder)
+        xPlot = CCDX[CCDOrder==nOrder]
+        yPlot = CCDY[CCDOrder==nOrder]
+        LambdaPlot = CCDLambda[CCDOrder==nOrder]
+        
+        fLambda = interpolate.interp1d(yPlot, LambdaPlot)
+        fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+        
+        if ((min(yPlot)>-imHeight/2) or (max(yPlot)<imHeight/2)):
+            yRange = yPlot
+        else:
+            yRange = range(-imHeight/2,imHeight/2)
+            
+        newX, newY, newLambdas = wt.calculate_from_Y(yRange, fX, fLambda)
+        
+        newX = newX[((newY>-imHeight/2) & (newY<imHeight/2))]        
+        newLambdas = newLambdas[((newY>-imHeight/2) & (newY<imHeight/2))]        
+        newY = newY[((newY>-imHeight/2) & (newY<imHeight/2))]        
+        
+        if len(newY)>0:
+            flux = wt.ia.extract_order(newX, newY, image)
+            
+            if len(specOrder)==0:
+                specOrder = np.array([nOrder])
+                specLambda = (newLambdas,)
+                specFlux = (flux,)
+    
+            else:
+                specOrder = np.append(specOrder, [nOrder], 0)
+                specLambda = specLambda + (newLambdas,)
+                specFlux = specFlux + (flux,)
+
+        
+    return specOrder, specLambda, specFlux 
+
 
 def do_export_CCDMap(CCDMap, scienceFile, outputFile):
     
@@ -439,7 +507,7 @@ def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         CCDOrder = CCDMap[CCD_MAP_ORDER] 
         CCDBeamID = CCDMap[CCD_MAP_BEAMID] 
 
-        colorTable = np.array((wt.wav2RGB(CCDLambda, CCDIntensity))) 
+        colorTable = np.array((wt.optics.wav2RGB(CCDLambda, CCDIntensity))) 
         
         imWidth = int(Cameras[0][CamerasWidth])
         imHeight = int(Cameras[0][CamerasHeight])
@@ -450,6 +518,7 @@ def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         if backImage!='':
             im = pyfits.getdata(backImage)
             im[im<0] = 0
+            im[np.isnan(im)] = 0
             im /= im.max()
             im = np.sqrt(im) #Remove this line for Hg
     #        im = np.sqrt(im) #Remove this line for Hg
@@ -483,19 +552,20 @@ def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
         
         plt.show()
 
-def do_plot_flux(flux, wavelength):
+def do_plot_flux(wavelength, flux, title = ''):
         
-        colorTable = np.array((wt.wav2RGB(wavelength, flux))) 
-        bar_width = (max(wavelength) - min(wavelength)) / 100
+#         colorTable = np.array((wt.optics.wav2RGB(wavelength, flux))) 
+#         bar_width = (max(wavelength) - min(wavelength)) / 100
 
          
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111, axisbg='black')
-        ax1.bar(wavelength, flux, width=bar_width, color=colorTable , edgecolor='none')
-        
+#         fig = plt.figure()
+#         ax1 = fig.add_subplot(111, axisbg='black')
+#         ax1.bar(wavelength, flux, width=bar_width, color=colorTable , edgecolor='none')
+#         ax1.scatter(wavelength, flux)
+        plt.plot(wavelength, flux)
         plt.ylabel('Intensity')
         plt.xlabel('Wavelength ($\mu$m)')
-        plt.axis([min(wavelength) ,max(wavelength)*1.01 ,min(flux) , max(flux)])
+#         plt.axis([min(wavelength) ,max(wavelength)*1.01 ,min(flux) , max(flux)])
 
         if title=='':title = 'Flux'
         plt.title(title)        
@@ -546,6 +616,7 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
         plt.imshow(imNorm,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
+
         plt.set_cmap(cm.Greys_r)
         
         ax1.scatter(imageMapX, imageMapY ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
@@ -596,4 +667,5 @@ def do_load_spec(modelXMLFile):
     
     Beams, Optics, Cameras, a, b = wt.xml.read_all(modelXMLFile)
     
+    print Cameras
 #do_load_spec('hermes.xml')

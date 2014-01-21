@@ -28,13 +28,17 @@ def identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageM
         avgImageY = np.average(imageMapY)
         avgCCDX = np.average(CCDX)
         avgCCDY = np.average(CCDY)
-        CCDXShifted = CCDX + (avgImageX- avgCCDX)
+        CCDXShifted = CCDX + (avgImageX - avgCCDX)
         CCDYShifted = CCDY + (avgImageY - avgCCDY)
-
+        
+        #hack to fix wavelength assignment
+#         CCDXShifted = CCDX + 100
+#         CCDYShifted = CCDY - 150
+      
         #These lines plot the model, calibration and model avg corrected points
         import pylab as ppp
-        ppp.scatter(CCDX, CCDY, s=50, color="blue", label='Model Data')
         ppp.scatter(imageMapX, imageMapY, s=50, color="red", label='Calibration Data')
+        ppp.scatter(CCDX, CCDY, s=50, color="blue", label='Model Data')
         ppp.scatter(CCDXShifted, CCDYShifted, s=50, color="green", label='Average Corrected Model Data')
         ppp.title('Main Reference Points')
         ppp.legend()
@@ -143,21 +147,19 @@ def read_full_calibration_data(calibrationDataFileName):
     CalibrationMap=np.loadtxt(calibrationDataFileName)
     return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
  
-def extract_order(x,y,image):
+def extract_order(x,y,image, booShowImage = False):
     
+    flux=np.zeros(len(y)) 
     
-    flux=np.zeros(len(y))
-#     flux2=np.zeros(len(y))
-#     flux3=np.zeros(len(y))
-
-    #Grab image and sizes
+    #Grab image data
     hdulist = pyfits.open(image)
+    im = pyfits.getdata(image)     
     imWidth = hdulist[0].header['NAXIS1']
     imHeight = hdulist[0].header['NAXIS2']
-    im = pyfits.getdata(image)  
-#    x += imWidth/2  #correction for pixel number
-#    y += imHeight/2 
-
+    
+    
+    x += imWidth/2
+    y += imHeight/2
     
     for k in range(0,len(y)):
         ###mikes'
@@ -193,7 +195,21 @@ def extract_order(x,y,image):
         
 #        tempIm[k,:]=im[y[k]+imHeight/2,x[k]-30:x[k]+30]
 
-#    plt.imshow(tempIm)
-#    plt.set_cmap(plt.cm.Greys_r)
-#    plt.show()
+    if booShowImage:
+        
+        fig = plt.figure()
+        ax1 = fig.add_subplot(111, axisbg = 'black')
+        im[im<0] = 0
+        im[np.isnan(im)] = 0
+        im /= im.max()
+        im = np.sqrt(im) 
+        plt.imshow(im)
+        plt.set_cmap(cm.Greys_r)
+        
+        ax1.scatter(x, y ,s=8 , color = 'green', marker='o', alpha =.5)
+        plt.title('Extraction Mask')
+        plt.ylabel('pixels')
+        plt.xlabel('pixels')
+        plt.show()
+        
     return flux

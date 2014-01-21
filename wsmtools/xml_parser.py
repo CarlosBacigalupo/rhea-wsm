@@ -59,6 +59,7 @@ def write_p(p, modelXMLFile):
     
     f = open(modelXMLFile, 'w')
     xmldoc.writexml(f)
+    print "Wrote new model in " + modelXMLFile
     
 def read_all(modelXMLFile, p_in = []):
 
@@ -338,7 +339,7 @@ def find_modelXMLFile(modelXMLFile):
     b = np.char.rstrip(b, 'xml') 
     b = np.char.rstrip(b, '.') # removes .xml bit
     
-    b = np.char.lstrip(b, specName)
+    b = np.char.lstrip(b, specName+ '_v')
     
     prevVNumbers = np.zeros(len(b))
     

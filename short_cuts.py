@@ -5,48 +5,38 @@ import numpy as np
 import pyfits
 
 def launch_task(task):  
-    global wsm
+    global wsm, arcFile, modelXMLFile, modelXMLFile2, outputFileName, sexParamFile, finalOutputFileName, scienceFile, WORKING_PATH, flatFile
     
     if task==1: # Plot solar SED
         a=wsm.do_sed_map(SEDMode = SED_MODE_SOLAR)
         wsm.do_plot_sed_map(a)
         
     elif task==2: #Create and plot CCD map from continuous source 
-        WORKING_PATH = wsm.APP_PATH + 'set_1/'
-        a = wsm.do_sed_map(minLambda=0.4708, maxLambda=0.4893, deltaLambda=0.00001) 
-        b = wsm.do_ccd_map(a, WORKING_PATH + 'hermes_b.xml')
-        wsm.do_load_spec(WORKING_PATH + 'hermes_b.xml')
-        wsm.do_plot_ccd_map(b)
+        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.8, deltaLambda=0.0001) 
+        b = wsm.do_ccd_map(a, modelXMLFile)
+        wsm.do_load_spec(modelXMLFile)
+        wsm.do_plot_ccd_map(b, backImage = scienceFile)
     
     elif task==3: #Read a calibration fits file
         '''Extract centroids.
         Assign wavelengths and uncertainties.
         User confirm assignment
         Write output file.'''
-        arcFile = 'hg_rhea_sample1.fits'
-        modelXMLFile = 'rhea.xml'
-        outputFileName = 'hg_rhea_sample1.txt'
         wsm.do_load_spec(modelXMLFile)
         wsm.do_read_calibration_file(arcFile, modelXMLFile, outputFileName, booAvgAdjust = True, booPlotInitialPoints = True, booPlotFinalPoints = True)
        
     elif task==4: #Find fit
-        arcFile = 'hgar.fit'
-        modelXMLFile = 'rhea.xml'
-        outputFileName = 'hg_rhea.txt'
-        sexParamFile = 'rhea.sex'
-        finalOutputFileName = 'hg_rhea.txt'
-        scienceFile = 'thar.fit'
-        WORKING_PATH = wsm.APP_PATH + 'set_6/'
+
         activeCamera = 0
         diagTry = [1.5, 0.5, 0.9 , 0.2, 1.2, 1.2, 1.6, 1, 1.2, 6.7, 50, 50] 
         showStats = True
         wsm.do_load_spec(WORKING_PATH + modelXMLFile)
         
-        SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
-        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
+        SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='spectra/hg_spectrum.txt', minI=0.6)
+        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='spectra/ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
         SEDMap = np.hstack((SEDMap1, SEDMap2))
                 
-        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + modelXMLFile, WORKING_PATH +  finalOutputFileName, 0, showStats = True)      
+        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + modelXMLFile, WORKING_PATH +  finalOutputFileName, 0, showStats = True, diagTry = diagTry)      
         p_out = p_out[0]
                 
         #plot fit to see new model
@@ -57,36 +47,34 @@ def launch_task(task):
     
     elif task==5: #Full loop from calibration file to model
 
-        arcFile = 'hgar.fit'
-        modelXMLFile = 'rhea.xml'
-        outputFileName = 'hg_rhea.txt'
-        sexParamFile = 'rhea.sex'
-        finalOutputFileName = 'hg_rhea.txt'
-        scienceFile = 'thar.fit'
-        WORKING_PATH = wsm.APP_PATH + 'set_7/'
 
-        #step 1 - Read fits, extract calibration points to finalOutputFileName (n x 5 np.array) 
-        wsm.do_load_spec(WORKING_PATH + modelXMLFile)
+
+        #step 1 - Read fits, extract calibration points to finalOutputFileName (n x 5 np.array)        
+
+        
         #Create SEDMap from hgar emission
         SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
-        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=0.9) #create SEDMap from ar emission file
+        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=1) #create SEDMap from ar emission file
         SEDMap = np.hstack((SEDMap1, SEDMap2))
         
-#         wsm.do_read_calibration_file(WORKING_PATH + arcFile, WORKING_PATH + modelXMLFile, 
-#                                      WORKING_PATH +  outputFileName, WORKING_PATH +  sexParamFile, 
-#                                      WORKING_PATH +  finalOutputFileName, SEDMap,
-#                                      booPlotInitialPoints = True, booPlotFinalPoints = True)
+        wsm.do_load_spec(modelXMLFile)
+        
+        wsm.do_read_calibration_file(arcFile,  modelXMLFile, 
+                                    outputFileName,  sexParamFile, 
+                                    finalOutputFileName, SEDMap,
+                                    booPlotInitialPoints = True, booPlotFinalPoints = True, 
+                                    booAvgAdjust = False)
         
         #step 2 - find best fit to results extracted
 #         diagTry = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
         diagTry = [1,1,1,1,1,1,1,1,1,1,1,0.001,0.1,0.1,1,0.0001]
-        p_out = wsm.do_find_fit(SEDMap, WORKING_PATH + modelXMLFile, WORKING_PATH +  finalOutputFileName, 0, diagTry = diagTry, showStats = True)      
+        p_out = wsm.do_find_fit(SEDMap, modelXMLFile, finalOutputFileName, 0, diagTry = diagTry, showStats = True)      
         p_out = p_out[0]
         
     
         #step 3 - plot the optimised solution
-#         CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + modelXMLFile, p_try = p_out)
-#         wsm.do_plot_calibration_points(WORKING_PATH +  arcFile, WORKING_PATH +  finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
+#         CCDMap = wsm.do_ccd_map(SEDMap, modelXMLFile, p_try = p_out)
+#         wsm.do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
         
     
         #step 4 - extract using model
@@ -94,23 +82,26 @@ def launch_task(task):
 #         SEDMap = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='thar_spectrum.txt', 
 #                                 intNormalize=1, maxLambda=1) #create SEDMap from ar emission file
 
-        CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + modelXMLFile, p_try = p_out)  
-        wsm.do_plot_ccd_map(CCDMap, backImage = WORKING_PATH + arcFile)
+        CCDMap = wsm.do_ccd_map(SEDMap, modelXMLFile, p_try = p_out)  
+        wsm.do_plot_ccd_map(CCDMap, backImage = scienceFile)
 #         flux = wsm.do_extract_order(CCDMap , 87, WORKING_PATH + scienceFile)
 #         wsm.do_plot_flux(flux)
 #         outputFile = WORKING_PATH + 'thar_map.txt'
 #         wsm.do_export_CCDMap(CCDMap, WORKING_PATH + scienceFile, outputFile)  
         
     elif task==6: #extract spectrum
-        a = wsm.do_sed_map(SEDMode=SED_MODE_CALIB, specFile='Hg_5lines_double.txt')
-        wsm.do_plot_sed_map(a)
-        b = wsm.do_ccd_map(a)  
-        wsm.do_plot_ccd_map(b)
-        c = wsm.do_extract_order(b , 87, 'c_noFlat_sky_0deg_460_median.fits')
-    
+        a = wsm.do_sed_map(minLambda=0.3, maxLambda=0.8, deltaLambda=0.0001) 
+        b = wsm.do_ccd_map(a, modelXMLFile)
+        wsm.do_load_spec(modelXMLFile)
+        c, d = wsm.do_extract_order(b , 90, scienceFile, True)
+        wsm.do_plot_flux(c, d)
+        
     elif task==7: #plot points from calibration file
-        arcFile = 'hg_rhea_sample1.fits'
-        wsm.do_plot_calibration_points(arcFile, 'c_hg_rhea_sample1.txt', booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
+        SEDMap1 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='hg_spectrum.txt', minI=0.6)
+        SEDMap2 = wsm.do_sed_map(SEDMode=wsm.SED_MODE_FILE, spectrumFileName='ar_spectrum.txt', intNormalize = 1, minI=1) #create SEDMap from ar emission file
+        SEDMap = np.hstack((SEDMap1, SEDMap2))
+        CCDMap = wsm.do_ccd_map(SEDMap, modelXMLFile)
+        wsm.do_plot_calibration_points(arcFile, outputFileName, CCDMap=CCDMap, booLabels = True, canvasSize=1, title = 'Calibration points vs Model comparison ')
     
     elif task==8: #find fit, play with parameter space 
         calibrationDataFileName = 'c_hg_rhea_sample1.txt'
@@ -288,10 +279,62 @@ def launch_task(task):
         #step 3 - plot the optimised solution
         CCDMap = wsm.do_ccd_map(SEDMap, WORKING_PATH + modelXMLFile, p_try = p_out)
         wsm.do_plot_calibration_points(WORKING_PATH +  arcFile, WORKING_PATH +  finalOutputFileName, CCDMap, booLabels = False, canvasSize=1, title = 'Calibration points vs Model after fit')
+    
+    elif task==14: #extract full spectrum + 
+        import MyAstroLib as MAL
+        import math
         
+        c = MAL.const.c
+        
+        SEDMap = wsm.do_sed_map(minLambda=0.5, maxLambda=0.6, deltaLambda=0.001) 
+        
+        CCDMapStar = wsm.do_ccd_map(SEDMap, modelXMLFile)
+        wsm.do_load_spec(modelXMLFile)
+        specOrderStar, specLambdaStar, specFluxStar = wsm.do_extract_full_spectrum(CCDMapStar, scienceFile)
+        
+        CCDMapFlat = wsm.do_ccd_map(SEDMap, modelXMLFile2)
+        wsm.do_load_spec(modelXMLFile2)
+        specOrderFlat, specLambdaFlat, specFluxFlat = wsm.do_extract_full_spectrum(CCDMapFlat, flatFile)
+
+        flatLambda, flatFlux = wsm.wt.ic.divide_flat_full(specOrderStar, specLambdaStar, specFluxStar, specOrderFlat, specLambdaFlat, specFluxFlat, booPlot = False)
+#         for i in range(len(flatLambda)):
+#             Q, dRV = MAL.RVS.QdRV(flatLambda[i], flatFlux[i])
+#             print Q, dRV
+            
+        fullLambda, fullFlux = wsm.wt.ic.stitch(flatLambda, flatFlux)
+        
+        np.save(WORKING_PATH + 'all_lambda.npy',fullLambda)
+        np.save(WORKING_PATH + 'all_flux.npy',fullFlux)
+        
+        wsm.do_plot_flux(fullLambda, fullFlux) 
+               
+
+taskDict = {'plotCCD':2,
+            'findModel':5,
+            'plotCalib':7,
+            'extractOrder':6,
+            'extractAll':14}
 
 
-launch_task(13)
+
+WORKING_PATH = wsm.APP_PATH + 'set_9/'
+sexParamFile = WORKING_PATH + 'rhea.sex'
+
+outputFileName = WORKING_PATH + 'hg_rhea2.txt'
+finalOutputFileName = WORKING_PATH + 'hg_rhea2.txt'
+
+modelXMLFile = WORKING_PATH + 'rhea_v1.xml'
+modelXMLFile2 = WORKING_PATH + 'rhea_v3.xml'
+
+arcFile = WORKING_PATH + '20131203_HgAr.fit'
+scienceFile = WORKING_PATH + '20131114015310.fits'
+# scienceFile = WORKING_PATH + '20131203_Masterflat.fit'
+# scienceFile = WORKING_PATH + '20131203_HgAr.fit'
+flatFile = WORKING_PATH + '20131203_Masterflat.fit'
+
+# wsm.do_load_spec(modelXMLFile)
+
+launch_task(taskDict['extractAll'])
 
 
 #a=wsm.do_sed_map(minLambda=0.3, maxLambda=0.9)

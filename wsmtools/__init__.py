@@ -33,16 +33,16 @@ from constants import *
 import wsm
 
 
-def calculate_from_Y(Y, fX, fLambda):
+def calculate_from_Y(yRange, fX, fLambda):
     
-    newY=np.arange(np.min(Y),np.max(Y)) #Create continuous array from Y       
+    newY=np.arange(min(yRange),max(yRange)) #Create continuous array from imHeight       
     
     newX=fX(newY) #Creates newX from continuous newY         
     
     #clean results
-    nanMap= np.isnan(newX)
-    newX=newX[-nanMap]
-    newY=newY[-nanMap]            
+#     nanMap= np.isnan(newX)
+#     newX=newX[-nanMap]
+#     newY=newY[-nanMap]            
     
     Lambdas=fLambda(newY)   #Creates lambdas from continuous newY
     

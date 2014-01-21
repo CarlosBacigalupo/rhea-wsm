@@ -66,7 +66,7 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
                 
                 #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
 #                 if (Lambda >= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder-1))):
-                if (abs(Lambda*(nOrder+1)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-1)) <= abs(2*GPeriod*np.sin(blazeAngle))):
+                if (abs(Lambda*(nOrder+2)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-2)) <= abs(2*GPeriod*np.sin(blazeAngle))):
 
                     #Computes the unit vector that results from the optical system for a given wavelength and order
                     #This is the actual tracing of the ray for each wavelength             

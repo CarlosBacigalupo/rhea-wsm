@@ -54,7 +54,7 @@ CamerasDistortion3=9
 CamerasDistortionCenterX=10
 CamerasDistortionCenterY=11
 
-#File info
+#File location info
 SPEC_PATH = 'spectrographs/'
 SPEC_BKP_PATH = 'spectrographs/bkp/'
 SPECTRUM_PATH = 'spectra/'
