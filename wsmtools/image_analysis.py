@@ -4,65 +4,51 @@ import pyfits
 import pylab as plt
 import matplotlib.cm as cm
 
-from constants import *
+# from constants import *
+import constants as c
 import image_calibration as ic
 
-def analyse_image_sex(arcFile, sexParamFile, outputFileName):
+def analyse_image_sex(arcFile, sexParamFile):
+    #finds peaks using sextractor, returns program output and generated data filename
+    
+    
+    #adds sex_ to the arc filename for sextractor output
+    outputFileName =  'sex_' + ''.join(arcFile).split('.')[0]+ '.txt'
       
-    os_command = SEXTRACTOR_PATH +'sex ' + arcFile + ' -c ' + sexParamFile
+    os_command = c.SEXTRACTOR_PATH +'sex ' + arcFile + ' -c ' + sexParamFile
     os_command += ' -CATALOG_NAME ' + outputFileName
 #     os_command = '/usr/local/bin/sex'
 #     os.system(os_command)
-    proc = subprocess.Popen([os_command,SEXTRACTOR_PATH], stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen([os_command,c.SEXTRACTOR_PATH], stdout=subprocess.PIPE, shell=True)
     out, err_result = proc.communicate()
 
     # todo check results of os call and pass err_result
-    return err_result, out
+    return out, err_result, outputFileName
 
-def identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = False):
+def identify_imageMapWavelength_avg(CCDMap, calibrationMap, booAvgAdjust = False):
     #todo turn this into a full array calculation
-    imageMapLambda = np.zeros(len(imageMapX))
     
     if booAvgAdjust:
-        avgImageX = np.average(imageMapX)
-        avgImageY = np.average(imageMapY)
-        avgCCDX = np.average(CCDX)
-        avgCCDY = np.average(CCDY)
-        CCDXShifted = CCDX + (avgImageX - avgCCDX)
-        CCDYShifted = CCDY + (avgImageY - avgCCDY)
-        
-        #hack to fix wavelength assignment
-#         CCDXShifted = CCDX + 100
-#         CCDYShifted = CCDY - 150
-      
-        #These lines plot the model, calibration and model avg corrected points
-        import pylab as ppp
-        ppp.scatter(imageMapX, imageMapY, s=50, color="red", label='Calibration Data')
-        ppp.scatter(CCDX, CCDY, s=50, color="blue", label='Model Data')
-        ppp.scatter(CCDXShifted, CCDYShifted, s=50, color="green", label='Average Corrected Model Data')
-        ppp.title('Main Reference Points')
-        ppp.legend()
-        ppp.show()
-        
-        CCDX = CCDXShifted 
-        CCDY = CCDYShifted
+        avgImageX = np.average(calibrationMap[:,c.calibrationMap.x])
+        avgImageY = np.average(calibrationMap[:,c.calibrationMap.y])
+        avgCCDX = np.average(CCDMap[:,c.CCDMap.x])
+        avgCCDY = np.average(CCDMap[:,c.CCDMap.y])
+        CCDXShifted = CCDMap[:,c.CCDMap.x] + (avgImageX - avgCCDX)
+        CCDYShifted = CCDMap[:,c.CCDMap.y] + (avgImageY - avgCCDY)
+        CCDMap[:,c.CCDMap.x] = CCDXShifted 
+        CCDMap[:,c.CCDMap.y] = CCDYShifted
         
         
-    for i in range(len(imageMapX)):
+    for i in range(len(calibrationMap[:,c.calibrationMap.x])):
         
-        distance_array = np.sqrt((CCDX-imageMapX[i])**2+(CCDY-imageMapY[i])**2)
+        distance_array = np.sqrt((CCDMap[:,c.CCDMap.x]-calibrationMap[i,c.calibrationMap.x])**2+(CCDMap[:,c.CCDMap.y]-calibrationMap[i,c.calibrationMap.y])**2)
         closest_point = np.min(distance_array)
         closest_point_index = np.where(distance_array==closest_point)[0][0]       
-        imageMapLambda[i] = CCDLambda[closest_point_index]
-        
-#        lambda_distance = abs(SEDMap[SEDMapLambda]-imageMapLambda[i])
-#        lambda_closest_point = np.min(lambda_distance)
-#        lambda_closest_point_index = np.where(lambda_distance==lambda_closest_point)[0][0]
-#        imageMapLambda_match[i] = SEDMap[SEDMapLambda][lambda_closest_point_index]
-    
-    return imageMapLambda
+        calibrationMap[i,c.calibrationMap.wavelength] = CCDMap[closest_point_index,c.CCDMap.wavelength]
+            
+    return calibrationMap
 
-def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, backImageFileName, Cameras, canvasSize = 1):    
+def identify_imageMapWavelength_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapWavelength, backImageFileName, Cameras, canvasSize = 1):    
     
     #Plot
     imWidth = int(Cameras[0][CamerasWidth])
@@ -92,7 +78,7 @@ def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, ima
     for i in range(len(imageMapX)):
         x = imageMapX[i]
         y = imageMapY[i]
-        label = imageMapLambda[i]
+        label = imageMapWavelength[i]
         plt.annotate(
             label, 
             xy = (x, y), xytext = (0,-25),
@@ -100,66 +86,57 @@ def identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, ima
             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'red', alpha = 0.9))
         plt.draw()
                
-        default = imageMapLambda[i]
+        default = imageMapWavelength[i]
         userInput = raw_input("Enter a string (default: %s):\n" % default)
         if userInput:
-            imageMapLambda[i] = userInput
+            imageMapWavelength[i] = userInput
         else:
-            imageMapLambda[i] = default
+            imageMapWavelength[i] = default
 
 #    plt.legend()
 #    title = str(len(imageMapX))+' point(s) found in the calibration image'
 #    plt.title(title) 
 #    plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
-    print imageMapLambda
-    return imageMapLambda
+    return imageMapWavelength
 
-def load_image_map_sex(image_map_filename='calib_out.txt'):
-    imageMapX=imageMapY=[]
-
-    try: image_map_file = open(image_map_filename)
-    except Exception: return [],[],[],[]
-    image_map_file_temp = image_map_file.readlines()
-
-    for lines in image_map_file_temp:
-        if lines[0][0] != '#': 
-            linetemp = str.split(lines)
-
-            if len(imageMapX)==0:
-                imageMapX = np.array([float(linetemp[0])])
-                imageMapY = np.array([float(linetemp[1])])
-                image_map_sigx = np.array([float(linetemp[3])])
-                image_map_sigy = np.array([float(linetemp[3])])
-
-            else:
-                imageMapX = np.append(imageMapX,[float(linetemp[0])],0)
-                imageMapY = np.append(imageMapY,[float(linetemp[1])],0)
-                image_map_sigx = np.append(image_map_sigx,[float(linetemp[3])],0)
-                image_map_sigy = np.append(image_map_sigy,[float(linetemp[3])],0)
-                
-    return imageMapX, imageMapY, image_map_sigx, image_map_sigy 
+def read_image_map_sex(imageFilename):
+    #reads sextractor output and returns as a 2d array x,y,wavelength,sigx,sigy
+    arcFileMap = np.loadtxt(imageFilename, usecols = [0,1,3])
+    arcFileMap = np.insert(arcFileMap, 2, 0, axis=1)
+    arcFileMap = np.insert(arcFileMap, 3, arcFileMap[:,3], axis=1)
+    return arcFileMap 
 
 def read_full_calibration_data(calibrationDataFileName):
-    '''
-    Reads the calibration data from a txt file and separates the information into 5 separate variables: x, y, wavelength, xSig and ySig.
-    '''
+    #Reads the calibration data from a calibration format txt file 
+    #Returns: Nx5 np array with x, y, wavelength, xSig and ySig
+    calibrationMap =  np.loadtxt(calibrationDataFileName)
 
-    CalibrationMap=np.loadtxt(calibrationDataFileName)
-    return CalibrationMap[:,0], CalibrationMap[:,1], CalibrationMap[:,2], CalibrationMap[:,3], CalibrationMap[:,4]
+    if calibrationMap.shape[0]>0:
+        calibrationMap = np.array(calibrationMap)
+    else:
+        calibrationMap = np.array([])
+   
+    return calibrationMap
+
  
 def extract_order(x,y,image, booShowImage = False):
     
     flux=np.zeros(len(y)) 
     
-    #Grab image data
-    hdulist = pyfits.open(image)
-    im = pyfits.getdata(image)     
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
+    if type(image)==np.ndarray:
+        im = image
+        imWidth = image.shape[1]
+        imHeight = image.shape[0]
+    elif type(image)==str:
+        #Grab image data
+        hdulist = pyfits.open(image)
+        im = pyfits.getdata(image)     
+        imWidth = hdulist[0].header['NAXIS1']
+        imHeight = hdulist[0].header['NAXIS2']
     
     
-    x += imWidth/2
-    y += imHeight/2
+#     x += imWidth/2
+#     y += imHeight/2
     
     for k in range(0,len(y)):
         ###mikes'
@@ -202,8 +179,9 @@ def extract_order(x,y,image, booShowImage = False):
         im[im<0] = 0
         im[np.isnan(im)] = 0
         im /= im.max()
-        im = np.sqrt(im) 
-        plt.imshow(im)
+#         im = np.sqrt(im)
+        im = np.log10(im) 
+        plt.imshow(im, origin = 'lower' )
         plt.set_cmap(cm.Greys_r)
         
         ax1.scatter(x, y ,s=8 , color = 'green', marker='o', alpha =.5)

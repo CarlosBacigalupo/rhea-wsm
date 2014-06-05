@@ -5,9 +5,6 @@ from constants import *
 import subprocess
 import pylab as plt
 
-def remove_overlap(fullLambda, fullFlux):
-    print''
-    #find range to fix
     
 def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()

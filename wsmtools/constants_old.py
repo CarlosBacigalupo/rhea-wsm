@@ -1,7 +1,6 @@
 global Beams, Optics, Cameras
 
 
-
 #Can plot orders from  146 to 73 (about 390 to 795nm). 
 minOrder=67
 maxOrder=146

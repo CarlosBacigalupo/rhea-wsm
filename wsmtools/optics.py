@@ -1,8 +1,9 @@
 import numpy as np
 
-from constants import *
+import constants as c
 
-def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate=False,BackImage='',GaussFit=False):
+
+def ccd_loop(SEDMap, beams, optics, camera, stheta, orders): 
     '''
     Computes the projection of n beams of monochromatic light passing through an optical system. 
 
@@ -31,73 +32,84 @@ def ccd_loop(SEDMap, Beams, Optics, Camera, stheta): #, intNormalize,Interpolate
     -----  
     '''   
        
-    dataOut=np.zeros(5)
-    CCDX = CCDY = CCDLambda = CCDIntensity = CCDOrder = CCDBeamID = np.array([])
+    CCDMap = np.array([[]])
+    CCDMap3D = np.array([[[]]])
+    steps3D = [0,30,1,2,2,1,30]
     
-    pixelSize = float(Camera[CamerasPSize])
-    fLength = float(Camera[CamerasFLength])
+    pixelSize = camera.pSize
+    fLength = camera.fLength
     blazeAngle = stheta #Approximately np.arctan(2) #todo check how to make this general
-#     blazeAngle = np.arctan(2)  #Approximately np.arctan(2) #todo check how to make this general
+#     blazeAngle = np.arctan(2)  #Approximat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ly np.arctan(2) #todo check how to make this general
 
     #Retrieves max and min lambdas for intensity calculation
-    minLambda=min(SEDMap[SEDMapLambda])
-    maxLambda=max(SEDMap[SEDMapLambda])
-#    allFlux=np.array([0])
-#    allLambdas=np.array([0])
+    minLambda=min(SEDMap[:,c.sedMap.wavelength])
+    maxLambda=max(SEDMap[:,c.sedMap.wavelength])
+
     
-    for i in range(len(Optics)):
-        if (Optics[i][OpticsType]==OpticsRGrating or Optics[i][OpticsType]==OpticsVPHGrating):
-            GPeriod=Optics[i][OpticsGPeriod]
-        
+    for i in range(len(optics[:,c.optics.coords1x])):
+        if (optics[i,c.optics.type]==c.opticTypes.eGrating or optics[i,c.optics.type]==c.opticTypes.VPHGrating):
+            GPeriod=optics[i,c.optics.gPeriod]
+
+    beamID = 0   
     #One per beam
-    for Beam in Beams:
+    for beam in beams:
         
         #Navigates orders within the range given   
-        for nOrder in range(minOrder, maxOrder, deltaOrder):
-    
+        for nOrder in orders:
+#             print 'Order:',nOrder
             #loop lambda for current order
-            for i in np.arange(len(SEDMap[SEDMapLambda])): 
+            for i in np.arange(len(SEDMap[:,c.sedMap.wavelength])): 
                 
-                Lambda = SEDMap[SEDMapLambda][i]
-                inI = SEDMap[SEDMapIntensity][i]
-                            
-                #rhea hack GPeriod from optics, fixed, remove after a while
-#                GPeriod=31.50321471
+                Lambda = SEDMap[i,c.sedMap.wavelength]
+                inI = SEDMap[i,c.sedMap.intensity]
+#                 print 'wavelength:', Lambda            
                 
                 #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-#                 if (Lambda >= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder+1)) and Lambda <= abs(2*GPeriod*np.sin(blazeAngle)/(nOrder-1))):
-                if (abs(Lambda*(nOrder+2)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-2)) <= abs(2*GPeriod*np.sin(blazeAngle))):
+                if (abs(Lambda*(nOrder+0.5)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-0.5)) <= abs(2*GPeriod*np.sin(blazeAngle))):
 
                     #Computes the unit vector that results from the optical system for a given wavelength and order
                     #This is the actual tracing of the ray for each wavelength             
-                    v, isValid, beamID = ray_trace_flex(Beam, Lambda, nOrder, Optics, blazeAngle)
-
+                    v, v3D, isValid = ray_trace_flex(beam, Lambda, nOrder, optics, blazeAngle)
                     
                     if isValid: #no errors in calculation, within 1 order of blaze wavelength and beam makes it back through the prism
+#                         print Lambda, nOrder,'^^^^^^---------------------------------------------------------------------Good Vector'
                         x=v[0]*fLength*1000/pixelSize # x-coord in focal plane in pixels
                         z=v[2]*fLength*1000/pixelSize # z-coord in focal plane in pixels
-            
-                        outI=Intensity(Lambda, minLambda, maxLambda)    
                         
-                        #Add results to output arrays
-                        if len(CCDX)==0:
-                            CCDX = np.array([x])
-                            CCDY = np.array([z])
-                            CCDLambda = np.array([Lambda])
-                            CCDIntensity = np.array([inI*outI])
-                            CCDOrder = np.array([nOrder])
-                            CCDBeamID = np.array([beamID])
-                        else:
-                            CCDX = np.append(CCDX,[x],0)
-                            CCDY = np.append(CCDY,[z],0)
-                            CCDLambda = np.append(CCDLambda,[Lambda],0)
-                            CCDIntensity = np.append(CCDIntensity,[inI*outI],0)
-                            CCDOrder = np.append(CCDOrder,[nOrder],0)
-                            CCDBeamID = np.append(CCDBeamID,[beamID],0)
-       
-    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
+                        x3D = np.zeros(len(v3D[:,0]))
+                        y3D = np.zeros(len(v3D[:,0]))
+                        z3D = np.zeros(len(v3D[:,0]))
 
-def ray_trace_flex(Beam, Lambda, nOrder, Optics, blazeAngle):
+                        for i in range(1,len(v3D[:,0])):
+                            x3D[i] = x3D[i-1]+v3D[i,0]*steps3D[i]
+                            y3D[i] = y3D[i-1]+v3D[i,1]*steps3D[i]
+                            z3D[i] = z3D[i-1]+v3D[i,2]*steps3D[i]
+                            
+                            
+#                         x3D = np.array(v3D[:,0]*steps3D)
+#                         y3D = np.array(v3D[:,1]*steps3D)
+#                         z3D = np.array(v3D[:,2]*steps3D)
+                                  
+                        outI = Intensity(Lambda, minLambda, maxLambda)    
+                    
+                        #Add results to output arrays
+                        if CCDMap.shape[1]==0:
+                            CCDMap = np.append(CCDMap,[[x,z,Lambda,inI*outI,nOrder,beamID]],axis=1)
+                        else:
+                            CCDMap = np.append(CCDMap,[[x,z,Lambda,inI*outI,nOrder,beamID]],axis=0)
+
+                        if CCDMap3D.shape[2]==0:
+                            CCDMap3D = np.array([[x3D,y3D,z3D,np.ones(len(x3D))*Lambda,np.ones(len(x3D))*inI*outI,np.ones(len(x3D))*nOrder,np.ones(len(x3D))*beamID]])
+                        else:
+                            CCDMap3D = np.append(CCDMap3D,np.array([[x3D,y3D,z3D,np.ones(len(x3D))*Lambda,np.ones(len(x3D))*inI*outI,np.ones(len(x3D))*nOrder,np.ones(len(x3D))*beamID]]),axis=0)
+                        
+                        beamID += 1
+
+
+#     print 'created ccdmap:', CCDMap.shape
+    return CCDMap, CCDMap3D
+
+def ray_trace_flex(beam, Lambda, nOrder, optics, blazeAngle):
     ''' Traces a beam through the spectrograph. 
     Spectrograph frame of reference, from the opposite end of the camera looking at the camera
     x=to the right, y=to camera, z=up
@@ -106,70 +118,63 @@ def ray_trace_flex(Beam, Lambda, nOrder, Optics, blazeAngle):
     l=grating, parallel to the grooves.
     d=blaze period'''
     
-    v = Beam[0]
-    beamID = Beam[1]
-    
+    v = np.array(beam[0])
+    v3D = np.array([[0,0,0],beam[0]])
+#     print 'input beam',v
+    isValid = True
+
     #loops through optics array
-    for i in range(len(Optics)):
-
-        if i==0: n_i=n(Lambda,'air')
-        optType=Optics[i][OpticsType]
-        n_r=n(Lambda,Optics[i][OpticsN])
+    for i in range(len(optics[:,c.optics.coords1x])):
+        #First time, incident medium is air.
+        if i==0: n_i=n(Lambda,c.media.air)
         
-        if optType==OpticsBoundary:
-            surfNormal=Optics[i][OpticsCoords1]           
-            v_out = Snell3D(n_i, n_r, v, surfNormal)
-        elif optType==OpticsRGrating:
-            isValid=False
-            GPeriod=Optics[i][OpticsGPeriod]
-            s=Optics[i][OpticsCoords1]
-            l=Optics[i][OpticsCoords2]
-            v_out, isValid = RGrating(v, s, l, nOrder, Lambda, GPeriod)
-        elif optType==OpticsVPHGrating:
-            isValid=False
-            GPeriod=Optics[i][OpticsGPeriod]
-            s=Optics[i][OpticsCoords1]
-            l=Optics[i][OpticsCoords2]
-            v_out, isValid = VPHGrating(v, s, l, nOrder, Lambda, GPeriod)
-#            isValid = True
-#            else:
-#                return v, isValid
+        if isValid:
+            #Optical element and refr. index for this loop.
+            optType=optics[i,c.optics.type]
+            n_r=n(Lambda,optics[i,c.optics.n])
             
-        n_i = n_r
-        v = v_out
+            if optType==c.opticTypes.boundary :
+                isValid=False
+                surfNormal=optics[i,c.optics.coords1x:c.optics.coords1z+1] 
+                v_out, isValid = Snell3D(n_i, n_r, v, surfNormal)
+            elif optType==c.opticTypes.eGrating:
+                isValid=False
+                GPeriod=optics[i,c.optics.gPeriod]
+                s=optics[i,c.optics.coords1x:c.optics.coords1z+1]
+                l=optics[i,c.optics.coords2x:c.optics.coords2z+1]
+                v_out, isValid = RGrating(v, s, l, nOrder, Lambda, GPeriod)
+            elif optType==c.opticTypes.VPHGrating:
+                isValid=False
+                GPeriod=optics[i,c.optics.gPeriod]
+                s=optics[i,c.optics.coords1x:c.optics.coords1z+1]
+                l=optics[i,c.optics.coords2x:c.optics.coords2z+1]
+                v_out, isValid = VPHGrating(v, s, l, nOrder, Lambda, GPeriod)
+    
+            n_i = n_r
+            v = v_out
+            v3D = np.append(v3D,[v],axis=0)
+#             if isValid: print i,v
 
-#                           
-#        """Vector transform due to first surface"""
-#        u = Snell3D(nAir, nPrism, u, n1)
-#                         
-#        """Vector transform due to second surface"""
-#        u = Snell3D(nPrism, nAir, u, n2)
-#        
-#        """grating dispersion"""              
-#        u, isValid = RGrating(u, s, l, nOrder, Lambda, d)
-#        
-#        if isValid:
-#            """Vector transform due to third surface"""
-#            u = Snell3D(nAir, nPrism, u, n4)
-#                       
-#            """Vector transform due to fourth surface"""
-#            u = Snell3D(nPrism, nAir, u, n5)
-            
-    return v, isValid, beamID
+    return v, v3D, isValid
 
 def RGrating(u, s, l, nOrder, Lambda, d):
     """Computes the new direction of a vector when hitting a grating."""
     
     isValid=False
 
-    n = np.cross(s, l) 
+    n = np.cross(s, l) #normal vector from s and l
+    
     u_l = np.dot(u, l)
     u_s = np.dot(u, s) + nOrder*Lambda/d  
+    
     if (1-u_l**2 -u_s**2)>=0: 
         u_n = np.sqrt(1- u_l**2 - u_s**2)
         u = u_l*l + u_s*s + u_n*n
-        isValid=True
-
+        isValid=True    
+#         print 'l,s,n,Order:',u_l,u_s,u_n, nOrder
+    else:
+#         print 'RGrating: Not unit vector'
+        pass
     return u, isValid     
 
 def VPHGrating(u, s, l, nOrder, Lambda, d):
@@ -190,27 +195,43 @@ def VPHGrating(u, s, l, nOrder, Lambda, d):
 def Snell3D(n_i,n_r,u,n):
     """Computes the new direction of a vector when changing medium. 
     n_i, n_r = incident and refractive indices"""
- 
-    u_p = u - np.dot(u,n)*n
-    u_p /= np.linalg.norm(u_p)
     
     theta_i = np.arccos(np.dot(u,n))
+    if np.degrees(theta_i)>90:
+        n = -n
+        theta_i = np.arccos(np.dot(u,n))
+        
+    #u_p unit vector across boundary surface. 
+    #1 of the vectors that forms the basis for the result (the other is n, the normal)
+    #runs in the direction of the projection of the output beam on the surface
+    u_p = u - np.dot(u,n)*n
+    u_p /= np.linalg.norm(u_p)
+       
+    isValid = False
+    sin_theta_f = n_i*np.sin(theta_i)/n_r
+    if sin_theta_f<=1:
+        theta_f = np.arcsin(sin_theta_f)
+        u = u_p*np.sin(theta_f) + n*np.cos(theta_f) #builds output vector from output angle theta_f
+        isValid = True
+    else:
+#         print 'Snell: Total internal reflection. Incident angle(deg):', np.degrees(theta_i)
+        pass
     
-    if n_i*np.sin(theta_i)/n_r<=1:
-        theta_f = np.arcsin(n_i*np.sin(theta_i)/n_r)
-        u = u_p*np.sin(np.pi-theta_f) + n*np.cos(np.pi-theta_f)    
+    return u, isValid       
 
-    return u       
-
-def n(Lambda, medium='air', t=18, p=101325):
+def n(Lambda, medium=c.media.air, t=18, p=101325):
     
-    if medium=='air':
+    if medium==c.media.air:
         '''Function that calculates the refractive index of air for a given wavelength'''
         n = (0.0472326 * (173.3 - (1/Lambda)**2)**(-1))+1
-    elif medium=='nkzfs8':  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
+    elif medium==c.media.nkzfs8:  #nkzfs8 only for the moment. Should change into a sellmeier eq with material as input parameter
         '''Function that calculates the refractive index of the prism for a given wavelength'''
         x = float(Lambda)
         n = np.sqrt(1 + (1.62693651*x**2)/(x**2-0.010880863) + 0.24369876*x**2/(x**2-0.0494207753) + 1.62007141*x**2/(x**2-131.009163) )
+    elif medium==c.media.NSF11:  #N-SF11 only for the moment. Should change into a sellmeier eq with material as input parameter
+        '''Function that calculates the refractive index of the prism for a given wavelength'''
+        x = float(Lambda)
+        n = np.sqrt(1 + (1.73759695*x**2)/(x**2-0.013188707) + 0.313747346*x**2/(x**2-0.0623068142) + 1.89878101*x**2/(x**2-155.23629) )
 
     return n
 
@@ -296,9 +317,9 @@ def wav2RGB(Lambda, Intensity):
             G = 0.0
             B = 0.0
         else:
-            R = 1.0
-            G = 1.0
-            B = 1.0
+            R = 0.0
+            G = 0.0
+            B = 0.0
     
         # intensity correction
         if w >= .3800 and w < .4200:

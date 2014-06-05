@@ -1,8 +1,9 @@
 from xml.dom import minidom
 import numpy as np
-from constants import *
-import os, time, sys
-import wsmtools as wt
+import os, time
+
+import constants as c
+
 
 def read_p(modelXMLFile):
     
@@ -35,12 +36,12 @@ def write_p(p, modelXMLFile):
     bkp_time = time.time()
     
     newmodelXMLFile = find_modelXMLFile(modelXMLFile)
-    file_path = modelXMLFile[:-len(modelXMLFile.rsplit('/')[-1])] #take only path
+#     file_path = modelXMLFile[:-len(modelXMLFile.rsplit('/')[-1])] #take only path
     
-    os_command = 'cp ' + modelXMLFile + ' ' +  file_path + newmodelXMLFile
+    os_command = 'cp ' + modelXMLFile + ' ' + newmodelXMLFile
     os.system(os_command)
     
-    modelXMLFile = file_path + newmodelXMLFile
+    modelXMLFile = newmodelXMLFile
     
     xmldoc = minidom.parse(modelXMLFile)
     
@@ -60,8 +61,9 @@ def write_p(p, modelXMLFile):
     f = open(modelXMLFile, 'w')
     xmldoc.writexml(f)
     print "Wrote new model in " + modelXMLFile
-    
-def read_all(modelXMLFile, p_in = []):
+    return modelXMLFile
+
+def read_all(modelXMLFile, p_try = []):
 
     p=np.zeros(16)
     Optics=np.array([])
@@ -80,10 +82,10 @@ def read_all(modelXMLFile, p_in = []):
             
             #pulls p values from the spectrograph level
             if specElement.hasAttribute('param'): 
-                if p_in==[]:
+                if p_try==[]:
                     p[int(specElement.attributes.getNamedItem('param').value)] = float(specElement.firstChild.data)
                 else:
-                    p[int(specElement.attributes.getNamedItem('param').value)] = p_in[int(specElement.attributes.getNamedItem('param').value)]
+                    p[int(specElement.attributes.getNamedItem('param').value)] = p_try[int(specElement.attributes.getNamedItem('param').value)]
             
             
             
@@ -92,10 +94,10 @@ def read_all(modelXMLFile, p_in = []):
                 for camera in specElement.childNodes:   
                     if camera.nodeType==1:
                         if camera.hasAttribute('param'):
-                            if p_in==[]:
+                            if p_try==[]:
                                 p[int(camera.attributes.getNamedItem('param').value)] = float(camera.firstChild.data)
                             else:
-                                p[int(camera.attributes.getNamedItem('param').value)] = p_in[int(camera.attributes.getNamedItem('param').value)]                    
+                                p[int(camera.attributes.getNamedItem('param').value)] = p_try[int(camera.attributes.getNamedItem('param').value)]                    
                         
                         for child in camera.childNodes:
                             if child.nodeType==1: 
@@ -125,32 +127,32 @@ def read_all(modelXMLFile, p_in = []):
                                    distortionCenterY=float(child.firstChild.data)
                                                                                                                             
                                 if child.hasAttribute('param'):
-                                    if p_in==[]:
+                                    if p_try==[]:
                                         p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
                                     else:
-                                        p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                        p[int(child.attributes.getNamedItem('param').value)] = p_try[int(child.attributes.getNamedItem('param').value)]
                                         if child.nodeName=='name':
-                                            name = p_in[int(child.attributes.getNamedItem('param').value)]                                          
+                                            name = p_try[int(child.attributes.getNamedItem('param').value)]                                          
                                         elif child.nodeName=='width':
-                                            width = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            width = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='height':
-                                            height = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            height = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='pSize':
-                                            pSize = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            pSize = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='minLambda':
-                                            minLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            minLambda = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='maxLambda':
-                                            maxLambda = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            maxLambda = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortion1':
-                                            distortion1 = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            distortion1 = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortion2':
-                                            distortion2 = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            distortion2 = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortion3':
-                                            distortion3 = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            distortion3 = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortionCenterX':
-                                            distortionCenterX = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            distortionCenterX = p_try[int(child.attributes.getNamedItem('param').value)]   
                                         elif child.nodeName=='distortionCenterY':
-                                            distortionCenterY = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            distortionCenterY = p_try[int(child.attributes.getNamedItem('param').value)]   
                                 
                         newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda, distortion1, distortion2, distortion3, distortionCenterX, distortionCenterY]]
                         
@@ -165,10 +167,10 @@ def read_all(modelXMLFile, p_in = []):
                     if beam.nodeType==1:
                         
                         if beam.hasAttribute('param'):
-                            if p_in==[]:
+                            if p_try==[]:
                                 p[int(beam.attributes.getNamedItem('param').value)] = float(beam.firstChild.data)
                             else:
-                                p[int(beam.attributes.getNamedItem('param').value)] = p_in[int(beam.attributes.getNamedItem('param').value)]                    
+                                p[int(beam.attributes.getNamedItem('param').value)] = p_try[int(beam.attributes.getNamedItem('param').value)]                    
                         
                         if beam.hasAttribute('beamID'):
                             beamID = int(beam.attributes.getNamedItem('beamID').value)
@@ -182,14 +184,14 @@ def read_all(modelXMLFile, p_in = []):
                                     theta=child.firstChild.data
                                                                                                                             
                                 if child.hasAttribute('param'):
-                                    if p_in==[]:
+                                    if p_try==[]:
                                         p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
                                     else:
-                                        p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                        p[int(child.attributes.getNamedItem('param').value)] = p_try[int(child.attributes.getNamedItem('param').value)]
                                         if child.nodeName=='phi':
-                                            phi = p_in[int(child.attributes.getNamedItem('param').value)]                                          
+                                            phi = p_try[int(child.attributes.getNamedItem('param').value)]                                          
                                         elif child.nodeName=='theta':
-                                            theta = p_in[int(child.attributes.getNamedItem('param').value)]   
+                                            theta = p_try[int(child.attributes.getNamedItem('param').value)]   
                                 
                         newBeam=[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]
                         
@@ -202,8 +204,8 @@ def read_all(modelXMLFile, p_in = []):
                 for optElement in specElement.childNodes:   
                     if optElement.nodeType==1:    
                         if optElement.hasAttribute('type'): 
-                            optType=optElement.attributes.getNamedItem('type').value
-                            if optType=='boundary':
+                            optType=int(optElement.attributes.getNamedItem('type').value)
+                            if optType==c.opticTypes.boundary:
                                 for child in optElement.childNodes:
                                     if child.nodeType==1: 
                                         if child.nodeName=='medium':
@@ -214,24 +216,32 @@ def read_all(modelXMLFile, p_in = []):
                                             theta=child.firstChild.data
                                                                                                                                     
                                         if child.hasAttribute('param'):
-                                            if p_in==[]:
+                                            if p_try==[]:
                                                 p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
                                             else:
-                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_try[int(child.attributes.getNamedItem('param').value)]
                                                 if child.nodeName=='medium':
-                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    medium=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='phi':
-                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                    phi=p_try[int(child.attributes.getNamedItem('param').value)]                                            
                                                 elif child.nodeName=='theta':
-                                                    theta=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    theta=p_try[int(child.attributes.getNamedItem('param').value)]
 
                                 
                                 #Build normal vector and update Optics array
-                                n=np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))])
+                                
+#                                 n=np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))])
 
-                                newOptics = [[n,[0,0,0],OpticsBoundary,medium,0]]
+                                newOptics = [[np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),
+                                              np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),
+                                              np.cos(np.radians(float(theta))),
+                                              0,0,0,
+                                              c.opticTypes.boundary,
+                                              int(medium),
+                                              0,
+                                              0]]
 
-                            elif optType=='RGrating':
+                            elif optType==c.opticTypes.eGrating:
                                 for child in optElement.childNodes:
                                     if child.nodeType==1: 
                                         if child.nodeName=='medium':
@@ -247,20 +257,20 @@ def read_all(modelXMLFile, p_in = []):
                                             bl_period=float(child.firstChild.data)
                                                                                                                                     
                                         if child.hasAttribute('param'):
-                                            if p_in==[]:
+                                            if p_try==[]:
                                                 p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
                                             else:
-                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_try[int(child.attributes.getNamedItem('param').value)]
                                                 if child.nodeName=='medium':
-                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    medium=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='phi':
-                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                    phi=p_try[int(child.attributes.getNamedItem('param').value)]                                            
                                                 elif child.nodeName=='theta':
-                                                    stheta=theta=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    stheta=theta=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='alpha':
-                                                    alpha=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    alpha=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='bl_period':
-                                                    bl_period=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    bl_period=p_try[int(child.attributes.getNamedItem('param').value)]
                                                
                                 #Build normal and grating vector and update Optics array
                                 s = np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]) #component perp to grooves   
@@ -270,9 +280,14 @@ def read_all(modelXMLFile, p_in = []):
                                 #Create l from given alpha using a and b as basis
                                 l = np.cos(np.radians(float(alpha)))*a + np.sin(np.radians(float(alpha)))*b #component along grooves
                                 
-                                newOptics = [[s,l,OpticsRGrating,'air',bl_period]]
+                                newOptics = [[s[0], s[1], s[2],
+                                            l[0], l[1], l[2],
+                                            c.opticTypes.eGrating,
+                                            c.media.air,
+                                            bl_period,
+                                            0]]
                                     
-                            elif optType=='VPHGrating':
+                            elif optType==c.opticTypes.VPHGrating:
                                 for child in optElement.childNodes:
                                     if child.nodeType==1: 
                                         if child.nodeName=='medium':
@@ -288,20 +303,20 @@ def read_all(modelXMLFile, p_in = []):
                                             bl_period=float(child.firstChild.data)
                                                                                                                                     
                                         if child.hasAttribute('param'):
-                                            if p_in==[]:
+                                            if p_try==[]:
                                                 p[int(child.attributes.getNamedItem('param').value)] = float(child.firstChild.data)
                                             else:
-                                                p[int(child.attributes.getNamedItem('param').value)] = p_in[int(child.attributes.getNamedItem('param').value)]
+                                                p[int(child.attributes.getNamedItem('param').value)] = p_try[int(child.attributes.getNamedItem('param').value)]
                                                 if child.nodeName=='medium':
-                                                    medium=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    medium=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='phi':
-                                                    phi=p_in[int(child.attributes.getNamedItem('param').value)]                                            
+                                                    phi=p_try[int(child.attributes.getNamedItem('param').value)]                                            
                                                 elif child.nodeName=='theta':
-                                                    stheta=theta=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    stheta=theta=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='alpha':
-                                                    alpha=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    alpha=p_try[int(child.attributes.getNamedItem('param').value)]
                                                 elif child.nodeName=='bl_period':
-                                                    bl_period=p_in[int(child.attributes.getNamedItem('param').value)]
+                                                    bl_period=p_try[int(child.attributes.getNamedItem('param').value)]
                                                
                                 #Build normal and grating vector and update Optics array
                                 s = np.array([np.cos(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.sin(np.radians(float(phi)))*np.sin(np.radians(float(theta))),np.cos(np.radians(float(theta)))]) #component perp to grooves   
@@ -310,29 +325,33 @@ def read_all(modelXMLFile, p_in = []):
                                 b = np.cross(a,s)
                                 #Create l from given alpha using a and b as basis
                                 l = np.cos(np.radians(float(alpha)))*a + np.sin(np.radians(float(alpha)))*b #component along grooves
-                                
-                                newOptics = [[s,l,OpticsVPHGrating,'air',bl_period]]
 
-                            if len(Optics)==0:
+#                                 newOptics = [[s,l,OpticsVPHGrating,'air',bl_period]]
+                                newOptics = [[s[0], s[1], s[2],
+                                            l[0], l[1], l[2],
+                                            OpticsVPHGrating,
+                                            c.media.air,
+                                            bl_period,
+                                            0]]
+
+                            if Optics.shape[0]==0:
                                 Optics = np.array(newOptics)
                             else:
-                                Optics = np.append(Optics, newOptics, 0)
-
-
+                                Optics = np.append(Optics,newOptics,axis=0)
+                            
 
     return Beams, Optics, Cameras, p, np.radians(float(stheta))
 
-def find_modelXMLFile(modelXMLFile):
+def find_modelXMLFile( modelXMLFile):
     
-    specNameNoPath = modelXMLFile.rsplit('/')[-1] #take only filename (remove path)
-    file_path = modelXMLFile[:-len(specNameNoPath)] #take only path
+    specNameNoPath = modelXMLFile
     
     #find if it has a version number
     specName = specNameNoPath.rsplit('_v')[0] 
     if len(specName)==len(specNameNoPath):
         specName = specNameNoPath[:-4]
         
-    a = os.listdir(file_path) # retrieves folder contents
+    a = os.listdir('.') # retrieves folder contents
     b = np.array(a) # converts to numpy
     b = b[(np.char.startswith(b, specName) & np.char.endswith(b,'xml'))] # removes non xml files and keeps only spectrograph spcecific
     

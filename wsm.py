@@ -1,629 +1,774 @@
-#external Packages
-import random        
-import pyfits       
-import os           
+#external libs
 import numpy as np
-import bisect as bis
-import matplotlib.cm as cm
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt    
-# import interactive_plot as ip
-from scipy.optimize.minpack import leastsq
-from scipy.optimize import * #least square package
-from scipy import interpolate #interpolate function
-from astLib import astSED #Astro Libraries           
+import pyfits as pf
+import pylab as plt
+from scipy.optimize import leastsq
+from scipy import interpolate
+import os
 
-#internal modules
-from wsmtools.constants import *
+#internal libs
+import constants as c
 import wsmtools as wt
 
-def do_sed_map(SEDMode=SED_MODE_FLAT, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName='', minI=0, maxI=1e9): 
-    '''
-    Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
+
+class spectrograph():
     
-    Parameters
-    ----------
-    SEDMode : int
-        Mode for the creation of the SEDMap
-        0=Flat, 1=Random, 2=Sun, 3=from specFile, 4=from Calibration file
-        
-    minLambda : np.float32
-        Lower limit for SEDMap.
-
-    maxLambda : np.float32
-        Higher limit for SEDMap.
-
-    deltaLambda : np.float32
-        Step between wavelengths.
+    name = 'rhea'
+    arcMapMask = ''
     
-    intNormalize : integer
-        If !=0, it normalizes to intNormalize value
-        
-    specFile : str
-        File with the SED of the source (used when SEDmode = (SED_MODE_CALIB or SED_MODE_FILE))
-        
-    Returns
-    -------
-    SEDMap : np.array
-        n x 2 np.array with wavelength, Energy
-      
-    Notes
-    -----
-    '''  
-    if SEDMode==SED_MODE_FLAT: #Flat
-        SEDMap = np.array((np.arange(minLambda, maxLambda + deltaLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda + deltaLambda, deltaLambda).size)))
+    def __init__(self):
+        self.camera = cameras()
+        self.optics = optics()
+        self.beams = beams()
+        self.orders = np.array([34,35,36,37])
 
-    elif SEDMode==SED_MODE_RANDOM: #Random        
-        np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))    
-        SEDMap = np.array([0,0])
-        for Lambda in range(minLambda, maxLambda + deltaLambda, deltaLambda):
-#            Intensity=int()
-#            newItem=np.np.array([Lambda,random.random(0.0,1.0)])
-            SEDMap = np.vstack((SEDMap,np.array([Lambda,random.random(0.0,1.0)])))     
-        SEDMap = SEDMap[1:,]
-                 
-    elif SEDMode==SED_MODE_SOLAR: #Solar   
-        sol = astSED.SOL        
-        tempA=sol.wavelength.transpose()*1e-4
-        tempB=sol.flux.transpose()            
-        SEDMap = np.array([tempA, tempB])    
-        SEDMap = SEDMap.transpose()
-                                  
-    elif SEDMode==SED_MODE_FILE: #From line atlas
-        SEDMap = np.loadtxt(SPECTRUM_PATH + spectrumFileName, unpack=True)
         
-    elif SEDMode==SED_MODE_CALIB: #From calibration file
-        a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
-        SEDMap=np.array((a[2],np.ones(len(a[2]))))
-#        SEDMap.transpose()
-                
-                
-    #Remove rows outside the wavelength range
-    SEDMap = np.array([SEDMap[0][SEDMap[0]>=minLambda],SEDMap[1][SEDMap[0]>=minLambda]])     
-    SEDMap = np.array([SEDMap[0][SEDMap[0]<=maxLambda],SEDMap[1][SEDMap[0]<=maxLambda]])     
-                
-                
-    #Normalize the intensity  
-    if intNormalize!=0:    
-        fluxRange=(max(SEDMap[SEDMapIntensity])-min(SEDMap[SEDMapIntensity]))
+    def create_sed_map(self, SEDMode=c.sedMode.flat, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName='', minI=0, maxI=1e9): 
+        '''
+        Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
         
-        if fluxRange==0:
-            SEDMap = np.array((SEDMap[SEDMapLambda], np.ones(SEDMap[SEDMapLambda].size)))  
-        else:
-            SEDMap = np.array((SEDMap[SEDMapLambda], (SEDMap[SEDMapIntensity]-min(SEDMap[SEDMapIntensity]))/(fluxRange+1) ))
-
-    #Remove rows outside the intensity range
-    SEDMap = np.array([SEDMap[0][SEDMap[1]>=minI],SEDMap[1][SEDMap[1]>=minI]])     
-    SEDMap = np.array([SEDMap[0][SEDMap[1]<=maxI],SEDMap[1][SEDMap[1]<=maxI]])     
-       
-    return SEDMap
-
-def do_ccd_map(SEDMap ,modelXMLFile, activeCamera=0, p_try = []):
-    '''
-    Computes the projection of n beams of monochromatic light passing through an optical system. 
-
-    Parameters
-    ----------
-    SEDMap : np.array
-        n x 2 np.array [wavelength, Energy]
-        
-    Returns
-    -------
-    CCDX : np.array
-        x coordinate of the target point 
-    CCDY : np.array
-        x coordinate of the target point 
-    CCDLambda : np.array
-        wavelength at x,y
-    CCDIntensity : np.array
-        Intensity at x,y
-    CCDOrder : np.array
-        Order at x,y
-
-    Notes
-    -----  
-    '''   
+        Parameters
+        ----------
+        SEDMode : int
+            Mode for the creation of the SEDMap
+            0=Flat, 1=Random, 2=Sun, 3=from specFile, 4=from Calibration file
             
-    #Reads xml file
-    Beams, Optics, Cameras, p, stheta = wt.xml.read_all(modelXMLFile, p_try)   
+        minLambda : np.float32
+            Lower limit for SEDMap.
     
-    #hack for RHEA. Needs manual reverse of prism on beam return. todo
-#     if modelXMLFile[-8:]=='rhea.xml':
-    Optics[4][0]=-Optics[0][0]
-    Optics[3][0]=-Optics[1][0]  
+        maxLambda : np.float32
+            Higher limit for SEDMap.
     
-    #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order)
-    CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID = wt.optics.ccd_loop(SEDMap, Beams , Optics, Cameras[activeCamera], stheta)
-     
-    #Distort if any distortion data present
-    K = [p[11], p[12], p[13]]
-    Xc = p[14]
-    Yc = p[15]
-    CCDX, CCDY = wt.optics.distort(CCDX, CCDY, K, Xc, Yc)
-    
-    return CCDX, CCDY, CCDLambda, CCDIntensity, CCDOrder, CCDBeamID
-
-def do_find_fit(SEDMap, modelXMLFile, calibrationDataFileName, activeCameraIndex, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
-    '''
-    Wrapper for reading the calibration file, and launching the fitting function
-       
-    Parameters
-    ----------
-    calibrationFile : string
-        Name of the file with the data from the spectrograph
-
-    Returns
-    -------
-    fit : np np.array
-        1 x 12 np np.array with fitted arguments (p np.array)
-      
-    Notes
-    -----
-    '''  
-    #old mainArgs=['4','0',calibrationFile,'0','0']
-    #x,y, wavelist are the positions of the peaks in calibrationFile.
-    #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
-    #fit is the output, which is the ideal p vector.
-    
-    if p_try==[]: p_try = wt.xml.read_p(modelXMLFile)
-    if diagTry==[]: diagTry = np.ones(len(p_try))
-    
-    while True:
-        fit = leastsq(wt.fit_errors, p_try, args=[SEDMap, modelXMLFile, calibrationDataFileName, activeCameraIndex], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
-        if fit[-1] != 0: #workaround to avoid inconsistent message 'wrong input parameters(error code 0)'
-            break
+        deltaLambda : np.float32
+            Step between wavelengths.
         
-    if showStats: wt.fitting_stats(fit)
+        intNormalize : integer
+            If !=0, it normalizes to intNormalize value
+            
+        specFile : str
+            File with the SED of the source (used when SEDmode = (SED_MODE_CALIB or SED_MODE_FILE))
+            
+        Returns
+        -------
+        SEDMap : np.array
+            n x 2 np.array with wavelength, Energy
+          
+        Notes
+        -----
+        '''  
+        if SEDMode==c.sedMode.flat: #Flat
+            SEDMap = np.array((np.arange(minLambda, maxLambda + deltaLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda + deltaLambda, deltaLambda).size)))
     
-    if booWriteP: 
-        wt.xml.write_p(fit[0], modelXMLFile)
-    return fit
+        elif SEDMode==c.sedMode.random: #Random        
+            np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))    
+            SEDMap = np.array([0,0])
+            for Lambda in range(minLambda, maxLambda + deltaLambda, deltaLambda):
+    #            Intensity=int()
+    #            newItem=np.np.array([Lambda,random.random(0.0,1.0)])
+                SEDMap = np.vstack((SEDMap,np.array([Lambda,random.random(0.0,1.0)])))     
+            SEDMap = SEDMap[1:,]
+                     
+        elif SEDMode==c.sedMode.solar: #Solar   
+            sol = astSED.SOL        
+            tempA=sol.wavelength.transpose()*1e-4
+            tempB=sol.flux.transpose()            
+            SEDMap = np.array([tempA, tempB])    
+            SEDMap = SEDMap.transpose()
+                                      
+        elif SEDMode==c.sedMode.file: #From line atlas
+            SEDMap = np.loadtxt(spectrumFileName, unpack=True)
+            
+        elif SEDMode==c.sedMode.calib: #From calibration file
+            a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
+            SEDMap=np.array((a[2],np.ones(len(a[2]))))
+    #        SEDMap.transpose()
+                    
+                    
+        #Remove rows outside the wavelength range
+        SEDMap = np.array([SEDMap[0][SEDMap[0]>=minLambda],SEDMap[1][SEDMap[0]>=minLambda]])     
+        SEDMap = np.array([SEDMap[0][SEDMap[0]<=maxLambda],SEDMap[1][SEDMap[0]<=maxLambda]])     
+                    
+                    
+        #Normalize the intensity  
+        if intNormalize!=0:    
+            fluxRange=(max(SEDMap[c.sedMap.intensity])-min(SEDMap[c.sedMap.intensity]))
+            
+            if fluxRange==0:
+                SEDMap = np.array((SEDMap[c.sedMap.wavelength], np.ones(SEDMap[c.sedMap.wavelength].size)))  
+            else:
+                SEDMap = np.array((SEDMap[c.sedMap.wavelength], (SEDMap[c.sedMap.intensity]-min(SEDMap[c.sedMap.intensity]))/(fluxRange+1) ))
+    
+        #Remove rows outside the intensity range
+        SEDMap = np.array([SEDMap[0][SEDMap[c.sedMap.intensity]>=minI],SEDMap[1][SEDMap[c.sedMap.intensity]>=minI]])     
+        SEDMap = np.array([SEDMap[0][SEDMap[c.sedMap.intensity]<=maxI],SEDMap[1][SEDMap[c.sedMap.intensity]<=maxI]])     
+           
+        return SEDMap.transpose()
 
-def do_read_calibration_file(arcFile, modelXMLFile, outputFileName, sexParamFile, finalOutputFileName, SEDMap, booAnalyse=True, booAvgAdjust = True, booPlotInitialPoints = False, booPlotFinalPoints = False):
-    '''
-    Extracts peaks with sextractor
-    Imports found points into arrays
-    Plots found points on image
-    Assigns initial wavelength based on proximity
-    Asks for user input to refine assignment
-       
-    Parameters
-    ----------
-    arcFile : string
-        Name of the calibration file (fits) 
-
-    specFileName : string
-        Run the analysis (reads the last output otherwise)
+    
+    def clear_calib_from_CCDMap(self, calibrationMap, CCDMap, distMin =10):
+        '''Removes points in calibration map that are further than distMin from a CCDMap point.
+        '''
         
-    booAnalyse : boolean
-    
-    booPlotInitialPoints : boolean
-
-
-
-    Returns
-    -------
-    nottin
-      
-    Notes
-    -----
-    '''      
-    global Beams, Optics, Cameras, a, b 
-    
-    if booAnalyse: wt.ia.analyse_image_sex(arcFile, sexParamFile, outputFileName)
-    
-    #Loads coordinate points from calibration sextractor output file
-    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
-    
-    # shifts to center of the chip (COC) coords
-    if imageMapX == []: return
-    imageMapX -= int(Cameras[0][CamerasWidth])/2 
-    imageMapY -= int(Cameras[0][CamerasHeight])/2
-    
-    #Create the model based on default parameters
-    CCDMap = do_ccd_map(SEDMap, modelXMLFile)  
-    
-    #Create initial output file from calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
-        f.write(out_string) 
-    f.close()
-    
-    if booPlotInitialPoints: #plot model vs. calibration points for sanity check
-        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
-    
-    #Find wavelength of detected points (first approximation)
-    CCDX = CCDMap[CCD_MAP_X] 
-    CCDY = CCDMap[CCD_MAP_Y] 
-    CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.ia.identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
-    
-    #Create temporary output file with all calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
-        f.write(out_string) 
-    f.close()
-
-    #Correct/confirm found wavelengths
-#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, arcFile, Cameras)
-
-    #Create final output file with all calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
-        f.write(out_string) 
-    f.close()   
-    
-    #Plot detected points with assigned wavelengths for check
-    if booPlotFinalPoints:
-        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
-       
-    return
-
-def do_create_calibFile(arcFile, modelXMLFile, calibFile, arcLinesFile):
-    '''
-    Extracts peaks with sextractor
-    Imports found points into arrays
-    Plots found points on image
-    Assigns initial wavelength based on proximity
-    Asks for user input to refine assignment
-       
-    Parameters
-    ----------
-    arcFile : string
-        Name of the calibration file (fits) 
-
-    modelXMLFile : string
-        Name of the model file (xml)
+        newCalibrationMap = np.array([[]])
         
-    calibFile : boolean
-    
-    booPlotInitialPoints : boolean
+        for i in range(len(CCDMap[:,c.CCDMap.x])):
+            distance_array = np.sqrt((CCDMap[i,c.CCDMap.x]-calibrationMap[:,c.calibrationMap.x])**2+(CCDMap[i,c.CCDMap.y]-calibrationMap[:,c.calibrationMap.y])**2)
+            closest_point = np.min(distance_array)
+            if closest_point<=distMin:
+                closest_point_index = np.where(distance_array==closest_point)[0][0]       
+                if newCalibrationMap.shape[1]==0:
+                    newCalibrationMap = np.array([calibrationMap[closest_point_index,:]])
+                else:
+                    newCalibrationMap = np.append(newCalibrationMap, [calibrationMap[closest_point_index,:]], axis=0)
 
+        return newCalibrationMap
 
-
-    Returns
-    -------
-    nottin
-      
-    Notes
-    -----
-    '''      
-    global Beams, Optics, Cameras, a, b 
-    
-    SEDMap = do_sed_map( SEDMode = SED_MODE_FILE, spectrumFileName = arcLinesFile)
-    
-    CCDMap = do_ccd_map(SEDMap, modelXMLFile)
-    
-
-    
-    X=CCDMap 
-    xs = np.mean(X, axis=1)
-    ys = np.std(X, axis=1)
+                
+    def read_arc_file(self, arcFile, sexParamFile):
+        '''
+        Extracts peaks with sextractor
+        Imports found points into arrays
+           
+        Parameters
+        ----------
+        arcFile : string
+            fits file with arc light
+            
+        sexParamFile : string
+            sextractor input parameters
     
     
-    p = ip.PointBrowser(xs,ys)
-
-    p.userfunc = plot2
-    
-#     xlabel('$\mu$')
-#     ylabel('$\sigma$')
-
-    p.update()
-    
-    #Loads coordinate points from calibration output file
-    imageMapX, imageMapY, image_map_sigx, image_map_sigy = wt.ia.load_image_map_sex(outputFileName)
-    if imageMapX == []: return
-    imageMapX -= int(Cameras[0][CamerasWidth])/2
-    imageMapY -= int(Cameras[0][CamerasHeight])/2
-    
-    #Create the model based on default parameters
-    CCDMap = do_ccd_map(SEDMap, modelXMLFile)  
-    
-    #Create initial output file from calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' 0.0 1 1\n'
-        f.write(out_string) 
-    f.close()
-    
-    if booPlotInitialPoints:
-        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = False, canvasSize=1.3, title = 'Calibration vs Model before wavelength matching ')
-    
-    #Find wavelength of detected points (first approximation)
-    CCDX = CCDMap[CCD_MAP_X] 
-    CCDY = CCDMap[CCD_MAP_Y] 
-    CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-    imageMapLambda = wt.ia.identify_imageMapLambda_avg(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, booAvgAdjust = booAvgAdjust)
-    
-    #Create temporary output file with all calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
-        f.write(out_string) 
-    f.close()
-
-    #Correct/confirm found wavelengths
-#    imageMapLambda = wt.ia.identify_imageMapLambda_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX, imageMapY, imageMapLambda, arcFile, Cameras)
-
-    #Create final output file with all calibration data
-    f = open(finalOutputFileName,'w')
-    for i in range(len(imageMapX)):
-        out_string = str(imageMapX[i]) + ' ' + str(imageMapY[i]) + ' ' + str(imageMapLambda[i]) + ' ' + str(image_map_sigx[i]) + ' ' + str(image_map_sigy[i]) + '\n'
-        f.write(out_string) 
-    f.close()   
-    
-    #Plot detected points with assigned wavelengths
-    if booPlotFinalPoints:
-        do_plot_calibration_points(arcFile, finalOutputFileName, CCDMap, booLabels = True, canvasSize=1, title = 'Calibration vs Model (wavelength assigned)')
-       
-    return
-
-def plot2(dataind):
-    fig2 = plt.figure(2)
-    ax2 = fig2.add_subplot(111)
-
-    ax2.cla()
-    ax2.plot(X[dataind])
-
-    ax2.text(0.05, 0.9, 'mu=%1.3f\nsigma=%1.3f'%(xs[dataind], ys[dataind]),
-             transform=ax2.transAxes, va='top')
-    ax2.set_ylim(-0.5, 1.5)
-
-    fig2.canvas.draw()
+        Returns
+        -------
+         
+          
+        Notes
+        -----
+        '''
         
-def do_extract_order(CCDMap, nOrder, image, booShowImage = False):
-    
-    CCDX = CCDMap[CCD_MAP_X]
-    CCDY = CCDMap[CCD_MAP_Y]
-    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
-    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
-    CCDOrder=CCDMap[CCD_MAP_ORDER]
-    
-    xPlot = CCDX[CCDOrder==nOrder]
-    yPlot = CCDY[CCDOrder==nOrder]
-    LambdaPlot = CCDLambda[CCDOrder==nOrder]
-    
-    fLambda = interpolate.interp1d(yPlot, LambdaPlot)
-    fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
-    
-    hdulist = pyfits.open(image)
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
-    
-    if ((min(yPlot)>-imHeight/2) or (max(yPlot)<imHeight/2)):
-        yRange = yPlot
-    else:
-        yRange = range(-imHeight/2,imHeight/2)
-    
-    newX, newY, newLambdas = wt.calculate_from_Y(yRange, fX, fLambda)
-    
-
-    #reduce y, x to fit image
-#     newLambdas = newLambdas[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
-#     newX = newX[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
-#     newY = newY[np.where((newY>=-imHeight/2) & (newY<=imHeight/2))]
-    
-    flux = wt.ia.extract_order(newX, newY, image, booShowImage)
-    
-    return newLambdas, flux 
-
-def do_extract_full_spectrum(CCDMap, image):
-    
-    CCDX = CCDMap[CCD_MAP_X]
-    CCDY = CCDMap[CCD_MAP_Y]
-    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
-    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
-    CCDOrder=CCDMap[CCD_MAP_ORDER]
-    
-    hdulist = pyfits.open(image)
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
-    
-    specOrder = []
-    
-    for nOrder in range(100,102): #range(min(CCDOrder), max(CCDOrder)): #range(90,93):
-        print 'Order ' + str(nOrder)
-        xPlot = CCDX[CCDOrder==nOrder]
-        yPlot = CCDY[CCDOrder==nOrder]
-        LambdaPlot = CCDLambda[CCDOrder==nOrder]
+        out, err_result, sexOutputFileName = wt.ia.analyse_image_sex(arcFile, sexParamFile)
         
+        #Loads coordinate points from calibration sextractor output file
+        arcFileMap = wt.ia.read_image_map_sex(sexOutputFileName)
+        if arcFileMap.shape[0] == 0: 
+            print 'sextractor: Point detection returned empty. Check .sex file in base_dir'
+            return
+        
+        # shifts to center of the chip (COC) coords    
+        # sextractor is 1 based array
+        arcFileMap[:,c.calibrationMap.x] -= 1 
+        arcFileMap[:,c.calibrationMap.y] -= 1
+            
+        #Create initial output file from calibration data
+        calibFileNoWl =  'calNoWl_' + ''.join(arcFile).split('.')[0]+ '.txt'
+        np.savetxt(calibFileNoWl, arcFileMap, delimiter=' ', newline = '\n')
+        
+        return calibFileNoWl
+
+
+    def read_xml(self, modelXMLFile, fitsFile='', p_try = []):        
+        #reads spectrograph xml file into corresponding classes
+        #fitsfile is any fits file of the right size to verify xml file size parameters
+        global a, b
+        
+        Beams, Optics, Cameras, p, stheta = wt.xml.read_all(modelXMLFile, p_try = p_try)
+        
+        self.beams.raw = Beams
+#         print 'Beam:',Beams
+        self.optics.raw = Optics
+        self.optics.coords1x = Optics[:,c.optics.coords1x]
+        self.optics.coords1y = Optics[:,c.optics.coords1y]
+        self.optics.coords1z = Optics[:,c.optics.coords1z]
+        self.optics.coords2x = Optics[:,c.optics.coords2x]
+        self.optics.coords2y = Optics[:,c.optics.coords2y]
+        self.optics.coords2z = Optics[:,c.optics.coords2z]
+        self.optics.type = Optics[:,c.optics.type]
+        self.optics.n = Optics[:,c.optics.n]
+        self.optics.gPeriod = Optics[:,c.optics.gPeriod]
+        self.optics.gBlAngle = Optics[:,c.optics.gBlAngle]
+#         print 'Optics:',Optics
+        
+        self.camera.raw = Cameras
+        self.camera.name = Cameras[0][c.cameras.name]
+        self.camera.width = int(Cameras[0][c.cameras.width])
+        self.camera.height = int(Cameras[0][c.cameras.height])
+        self.camera.offsetX = (int(Cameras[0][c.cameras.width])-1)/2.
+        self.camera.offsetY = (int(Cameras[0][c.cameras.height])-1)/2.
+        self.camera.pSize = float(Cameras[0][c.cameras.pSize])
+        self.camera.fLength = float(Cameras[0][c.cameras.fLength])
+        self.stheta = stheta
+        self.p = p
+        
+        if fitsFile!='':
+            hdulist = pf.open(fitsFile)
+            imWidth = hdulist[0].header['NAXIS1']
+            imHeight = hdulist[0].header['NAXIS2']
+            if imWidth!=self.camera.width: print'File width inconsistent between xml data and fitsfile', self.camera.width, imWidth
+            if imHeight!=self.camera.height: print'File height inconsistent between xml data and fitsfile', self.camera.height, imHeight
+
+    
+    def offset_CCDMap(self):
+        #shifts the coords of spectrograph.CCDMap by camera.offset... amount into spectrograph.CCDMapOffset
+        if self.CCDMap.shape[1]>0:
+        
+            self.CCDMapOffset = self.CCDMap.copy()
+            self.CCDMapOffset[:,c.CCDMap.x] += self.camera.offsetX
+            self.CCDMapOffset[:,c.CCDMap.y] += self.camera.offsetY
+        else:
+            print 'Found empty CCDMap when trying to apply offset'
+
+        
+    def assign_initial_wavelength(self, calibFileNoWl, modelXMLFile, SEDMap, booAvgAdjust = False):
+        '''
+        Assigns initial wavelength based on proximity
+        Optional correct by average
+        
+           
+        Parameters
+        ----------
+        calibFileNoWl : string
+             
+    
+        modelXMLFile : string
+            
+            
+        SEDMap : n x 2 np.array
+            
+            
+        booPlotPoints : boolean
+    
+    
+        Returns
+        -------
+        nottin
+          
+        Notes
+        -----
+        '''      
+        
+        calibFile = 'cal_' + ''.join(''.join(calibFileNoWl).split('_')[-1]).split('.')[0] + '.txt'
+        
+        #Loads coordinate points from calibration initial (no Wl) output file
+        calibrationMap = wt.ia.read_full_calibration_data(calibFileNoWl)
+        if calibrationMap.shape[0] == 0:
+            print 'Calibration data not found in ',  calibFileNoWl
+            return
+
+        #Create the model based on initial parameters        
+        CCDMap, CCDMapOffset = self.create_ccd_map(SEDMap, modelXMLFile, resetArcMap = False)  
+        
+        #Find wavelength of detected points (first approximation)
+        calibrationMap = wt.ia.identify_imageMapWavelength_avg(CCDMapOffset[self.arcMapMask], calibrationMap, booAvgAdjust = booAvgAdjust)
+        
+        #Create calibFile with all calibration data
+        np.savetxt(calibFile, calibrationMap, delimiter=' ', newline = '\n')
+    
+        return calibFile
+
+    
+    def create_ccd_map(self, SEDMap ,modelXMLFile, resetArcMap = True, p_try = [], booAddCero=False):
+        '''
+        Computes the projection of n beams of monochromatic light passing through an optical system. 
+    
+        Parameters
+        ----------
+        SEDMap : np.array
+            n x 2 np.array [wavelength, Energy]
+            
+        modelXMLFile : str
+            name of model xml file
+            
+        Returns
+        -------
+        CCDMap : n x 6 np.array [CCDX, CCDY, CCDWavelength, CCDIntensity, CCDOrder, CCDBeam ]
+    
+        Notes
+        -----  
+        '''   
+                
+        #Reads xml file
+        self.read_xml(modelXMLFile, p_try=p_try)   
+        
+        #hack for RHEA. Needs manual reverse of prism on beam return. todo
+    #     if modelXMLFile[-8:]=='rhea.xml':
+#         self.optics.raw[4,0:3]=-self.optics.raw[0,0:3]
+#         self.optics.raw[3,0:3]=-self.optics.raw[1,0:3]  
+        
+        self.camera.fLength = self.p[10]
+        #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order, beamID)
+        CCDMap, CCDMap3D = wt.optics.ccd_loop(SEDMap, self.beams.raw , self.optics.raw, self.camera , self.stheta, self.orders)
+        
+        #Distort if any distortion data present
+        K = [self.p[11], self.p[12], self.p[13]]
+        Xc = self.p[14]
+        Yc = self.p[15]
+        if CCDMap.shape[1]>0:
+            CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y] = wt.optics.distort(CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y], K, Xc, Yc)
+        
+            self.CCDMap = CCDMap
+            if booAddCero: self.CCDMap = np.append(self.CCDMap,[[0,0,0.7,1,0,0]],0)
+            self.CCDMap3D = CCDMap3D
+            self.offset_CCDMap()
+            if resetArcMap: self.arcMapMask = np.ones(CCDMap.shape[0]).astype(bool)
+        
+        return CCDMap, self.CCDMapOffset
+
+    
+    def save_arcMaskMap(self):
+        np.savetxt(self.name + '_arcMask.txt',self.arcMapMask)
+        
+ 
+    def find_fit(self, SEDMap, modelXMLFile, calibrationMap, p_try = [], factorTry=1 ,diagTry = [], showStats = False, maxfev = 1000, booWriteP = True):
+        '''
+        Wrapper for reading the calibration file, and launching the fitting function
+           
+        Parameters
+        ----------
+        calibrationFile : string
+            Name of the file with the data from the spectrograph
+    
+        Returns
+        -------
+        fit : np np.array
+            1 x 12 np np.array with fitted arguments (p np.array)
+          
+        Notes
+        -----
+        '''  
+        #old mainArgs=['4','0',calibrationFile,'0','0']
+        #x,y, wavelist are the positions of the peaks in calibrationFile.
+        #x,y,waveList,xsig,ysig = readCalibrationData(calibrationFile)
+        #fit is the output, which is the ideal p vector.
+        
+        if p_try==[]: p_try = wt.xml.read_p(modelXMLFile)
+        if diagTry==[]: diagTry = np.ones(len(p_try))
+        
+        while True:
+            fit = leastsq(self.fit_errors, p_try, args=[SEDMap, modelXMLFile, calibrationMap], full_output=True, factor = factorTry, diag = diagTry, maxfev = maxfev)
+            if fit[-1] != 0: #workaround to avoid inconsistent message 'wrong input parameters(error code 0)'
+                break
+            
+        if showStats: self.fitting_stats(fit)
+        
+        if booWriteP: 
+            wt.xml.write_p(fit[0], modelXMLFile)
+        return fit
+
+
+    def fit_errors(self, p, args):
+        '''
+        do_ccd_map will return these vectors in a random order. 
+        We assume that there are no rounding errors (probably a hack?)
+        and will use a floating point == to identify the (x,y) corresponding
+        to each wavelength input.
+        NB A much better idea would be to re-write main without vstack but
+        instead with a neatly created output structure that is defined at the start.
+        i.e. when going from SEDMap to SEDMapLoop the information on which line in
+        the input each wavelength came from was lost.
+        '''
+
+        SEDMap = args[0]
+        modelXMLFile = args[1]
+        calibrationMap = args[2]   
+    
+        CCDMap, CCDMapOffset = self.create_ccd_map(SEDMap, modelXMLFile, resetArcMap = False, p_try = p)
+        
+        CCDX_m = CCDMapOffset[:,c.CCDMap.x][self.arcMapMask]
+        CCDY_m = CCDMapOffset[:,c.CCDMap.y][self.arcMapMask]
+        CCDLambda_m = CCDMapOffset[:,c.CCDMap.wavelength][self.arcMapMask]
+            
+        CCDX_c = calibrationMap[:,c.calibrationMap.x]
+        CCDY_c = calibrationMap[:,c.calibrationMap.y]
+        CCDLambda_c = calibrationMap[:,c.calibrationMap.wavelength]
+        xSig_c = calibrationMap[:,c.calibrationMap.sigX]  
+        ySig_c = calibrationMap[:,c.calibrationMap.sigY]
+        
+        
+        #Loop through the input wavelengths, and find the closest output.
+        #The best model fits in x and y (out of 2 options) is called x_best and y_best
+        x_best = CCDX_c.copy()
+        y_best = CCDY_c.copy()
+        for k in range(0,len(CCDX_c)):
+            ix, = np.where(CCDLambda_c[k] == CCDLambda_m)
+            if (ix.size == 0):
+                x_best[k]=0
+                y_best[k]=0
+            else:
+                best = ix[np.argmin(np.abs(CCDY_m[ix] - CCDY_c[k]))]
+                #The following lines have a potential bug because they assume there is only one "best"
+                x_best[k] = CCDX_m[best]
+                y_best[k] = CCDY_m[best]
+             
+        #eliminate devide by 0     
+        xSig_c[xSig_c==0]=1
+        ySig_c[ySig_c==0]=1
+        
+        
+        diff_model_calib = np.hstack([(x_best - calibrationMap[:,c.calibrationMap.x])/calibrationMap[:,c.calibrationMap.sigX],
+                                      (y_best - calibrationMap[:,c.calibrationMap.y])/calibrationMap[:,c.calibrationMap.sigY] ]) 
+        print 'Total diff =', np.sum(np.abs(diff_model_calib))
+        
+        return diff_model_calib
+
+    
+    def fitting_stats(self, fit):
+    
+    
+        print 'Fitting Stats'
+        print ''
+        
+        print 'Solution Array'
+        print fit[0]
+        print ''
+        
+        dict = fit[2]
+        
+        
+        for item in dict:
+            print item 
+            if item=='nfev':
+                desc = 'The number of function calls'
+            elif item=='fvec':
+                desc = 'The function evaluated at the output'
+            elif item=='fjac':
+               desc = 'A permutation of the R matrix of a QR factorization of the final approximate Jacobian matrix, stored column wise. Together with ipvt, the covariance of the estimate can be approximated.'
+            elif item=='ipvt':
+                desc = 'An integer array of length N which defines a permutation matrix, p, such that fjac*p = q*r, where r is upper triangular with diagonal elements of nonincreasing magnitude. Column j of p is column ipvt(j) of the identity matrix.'
+            elif item=='qtf':
+                desc = 'The vector (transpose(q) * fvec)'
+    
+            print desc 
+            print dict[item]
+            print
+
+
+    def extract_order(self, CCDMap, nOrder, image = '', orderFileName = '', booShowImage = False):
+        
+        im = []
+        #Grab image data
+        if type(image)==np.ndarray:
+            im = image
+            imWidth = image.shape[1]
+            imHeight = image.shape[0]
+        elif ((type(image)==str) and (image!='')):
+            hdulist = pyfits.open(image)
+            im = pyfits.getdata(image)     
+            imWidth = hdulist[0].header['NAXIS1']
+            imHeight = hdulist[0].header['NAXIS2']     
+        else:
+            imWidth = self.camera.width
+            imHeight = self.camera.height     
+            
+        CCDMapTemp = CCDMap.copy()
+        orderMap = CCDMapTemp[:,c.CCDMap.order]==nOrder
+        yPlot = CCDMapTemp[:,c.CCDMap.y][orderMap]
+        xPlot = CCDMapTemp[:,c.CCDMap.x][orderMap]
+        LambdaPlot = CCDMapTemp[:,c.CCDMap.wavelength][orderMap]
+        
+        sortIndex = np.argsort(yPlot)
+        yPlot = yPlot[sortIndex]
+        xPlot = xPlot[sortIndex]
+        LambdaPlot = LambdaPlot[sortIndex]
+        
+#         yRange = [min(yPlot),max(yPlot)]    
+#         if yRange[0]<0: yRange[0]=0
+#         if yRange[1]>imHeight: yRange[1]=imHeight
+
+        yRangeFilter = ((yPlot>=0) & (yPlot<imHeight))
+        yPlot = yPlot[yRangeFilter]
+        xPlot = xPlot[yRangeFilter]
+        LambdaPlot = LambdaPlot[yRangeFilter]
+
         fLambda = interpolate.interp1d(yPlot, LambdaPlot)
         fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
-        
-        if ((min(yPlot)>-imHeight/2) or (max(yPlot)<imHeight/2)):
-            yRange = yPlot
-        else:
-            yRange = range(-imHeight/2,imHeight/2)
-            
+
+        yRange = [min(yPlot),max(yPlot)]
         newX, newY, newLambdas = wt.calculate_from_Y(yRange, fX, fLambda)
         
-        newX = newX[((newY>-imHeight/2) & (newY<imHeight/2))]        
-        newLambdas = newLambdas[((newY>-imHeight/2) & (newY<imHeight/2))]        
-        newY = newY[((newY>-imHeight/2) & (newY<imHeight/2))]        
+        xRangeFilter = ((newX>=0) & (newX<imWidth))
+        newX = newX[xRangeFilter]
+        newY = newY[xRangeFilter]
+        newLambdas = newLambdas[xRangeFilter]
         
-        if len(newY)>0:
-            flux = wt.ia.extract_order(newX, newY, image)
+        if orderFileName!='':
+            a = np.zeros((len(newX),3))
+            a[:,0] = newX
+            a[:,1] = newY
+            a[:,2] = newLambdas
+            np.savetxt(orderFileName, a)
+        
+        if type(im)==np.ndarray: 
+            flux = wt.ia.extract_order(newX, newY, image, booShowImage)
+        else:
+            flux = np.zeros(len(newLambdas))
             
-            if len(specOrder)==0:
-                specOrder = np.array([nOrder])
-                specLambda = (newLambdas,)
-                specFlux = (flux,)
+        return newLambdas, flux
     
-            else:
-                specOrder = np.append(specOrder, [nOrder], 0)
-                specLambda = specLambda + (newLambdas,)
-                specFlux = specFlux + (flux,)
-
-        
-    return specOrder, specLambda, specFlux 
-
-
-def do_export_CCDMap(CCDMap, scienceFile, outputFile):
     
-    CCDX = CCDMap[CCD_MAP_X]
-    CCDY = CCDMap[CCD_MAP_Y]
-    CCDLambda = CCDMap[CCD_MAP_LAMBDA]
-    CCDIntensity = CCDMap[CCD_MAP_INTENSITY]
-    CCDOrder=CCDMap[CCD_MAP_ORDER]
+    def read_multiple_laser_csv(self, folder, darkScale = 1):
+        
+        dark = self.create_dark(folder + 'darks/', scale = darkScale)
+        
+        # read all files into allFileNames
+        _,_,allFileNames = os.walk(folder).next()
+        allFileNames = np.array(allFileNames)
+        
+        #retrieves the unique line filenames
+        linesList = []
+        wavelengths = []
+        for i in allFileNames:
+            linesList = np.append(linesList, i[:35])
+            wavelengths = np.append(wavelengths, (int(i[10:14])*1e2+int(i[15:17]))/1e5)
+        linesList = np.unique(linesList)
+        wavelengths = np.unique(wavelengths)
+        #creates an height, width, # lines array
+        im_temp = np.loadtxt(folder + allFileNames[0], delimiter=';')
+        im = np.zeros((im_temp.shape[1],im_temp.shape[0],len(wavelengths))) #rotated 90 CCW
+        
+        #loads the im array
+        for i in range(len(linesList)):
+            im_temp = np.zeros((im_temp.shape[0],im_temp.shape[1],32))
+            for j in range(32):
+                currFile = str(linesList[i]) + '_' + str(j) + '.csv'
+                im_temp[:,:,j] = np.loadtxt(folder + str(currFile), delimiter=';')
+            im_temp = np.sum(im_temp, axis=2)
+            im[:,:,i] = np.rot90(im_temp) - dark
 
-    hdulist = pyfits.open(scienceFile)
-    imWidth = hdulist[0].header['NAXIS1']
-    imHeight = hdulist[0].header['NAXIS2']
-
-    f = open(outputFile,'w')
-    outputText = str('Order') + ' ' +  str('Y') + ' ' + str('X') + ' ' + str('Wavelength')
-    f.write(str(outputText) + '\n')     
+        return im, wavelengths
     
-    a = np.unique(CCDOrder)
-    for nOrder in a:
+    
+    def read_multiple_science_csv(self, folder, darkScale = 1):
         
-        print nOrder
+        dark = self.create_dark(folder + 'darks/', scale = darkScale)
         
-        xPlot = CCDX[CCDOrder==nOrder]
-        yPlot = CCDY[CCDOrder==nOrder]
-        LambdaPlot = CCDLambda[CCDOrder==nOrder]
+        # read all files into allFileNames
+        _,_,allFileNames = os.walk(folder).next()
+        allFileNames = np.array(allFileNames)
         
-        fLambda = interpolate.interp1d(yPlot, LambdaPlot)
-        fX = interpolate.interp1d(yPlot, xPlot, 'quadratic', bounds_error=False)
+        #loads the dark array
+        im = np.loadtxt(folder + str(allFileNames[0]), delimiter=';')
         
+        #loads the im array
+        for currFile in allFileNames[1:]:
+            im += np.loadtxt(folder + str(currFile), delimiter=';')
+        im = np.rot90(im)
 
-        newX, newY, newLambdas = wt.calculate_from_Y(range(-imHeight/2, imHeight/2), fX, fLambda)
-        
-        for i in range(len(newY)):
-            outputText = str(nOrder) + ' ' +  str(newY[i]) + ' ' + str(newX[i]) + ' ' + str(newLambdas[i])
-            f.write(str(outputText) + '\n') 
-            
-    f.close() 
+        return im, dark
 
-def do_plot_ccd_map(CCDMap, canvasSize=1, backImage=''):
-        
-        CCDX = CCDMap[CCD_MAP_X] 
-        CCDY = CCDMap[CCD_MAP_Y] 
-        CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-        CCDIntensity = CCDMap[CCD_MAP_INTENSITY] 
-        CCDOrder = CCDMap[CCD_MAP_ORDER] 
-        CCDBeamID = CCDMap[CCD_MAP_BEAMID] 
 
-        colorTable = np.array((wt.optics.wav2RGB(CCDLambda, CCDIntensity))) 
+    def find_peaks_im(self, im, wavelengths):
+        a = np.where(im[:,:,0]==np.max(im[:,:,0]))
+        array_out = np.array([[a[1][0], a[0][0],wavelengths[0], 0,0]])
         
-        imWidth = int(Cameras[0][CamerasWidth])
-        imHeight = int(Cameras[0][CamerasHeight])
-        
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111, axisbg = 'black')
+        #Extracts the wavelength list and peaks (max)
+        for i in range(1,len(wavelengths)):
+            a = np.where(im[:,:,i]==np.max(im[:,:,i]))
+            array_out = np.append(array_out,np.array([[a[1][0], a[0][0], wavelengths[i], 0,0]]), axis=0) #lambda, x, y  (lambda, col, row)
 
+        return array_out
+        
+        
+    def create_dark(self, folder, scale = 1):
+        # read all files into allFileNames
+        _,_,allFileNames = os.walk(folder).next()
+        allFileNames = np.array(allFileNames)
+        
+        #loads the dark array
+        dark = np.loadtxt(folder + str(allFileNames[0]), delimiter=';')
+        for currFile in allFileNames[1:]:
+            dark += np.loadtxt(folder + str(currFile), delimiter=';')
+        dark = np.rot90(dark)
+        
+        dark *= scale
+        print 'Dark Created'
+        return dark
+   
+   
+    def create_flat(self, folder, booNormalise = True):
+        # read all files into allFileNames
+        _,_,allFileNames = os.walk(folder).next()
+        allFileNames = np.array(allFileNames)
+        
+        #loads the flat array
+        flat_temp = np.loadtxt(folder + str(allFileNames[0]), delimiter=';')
+        flat = np.zeros((flat_temp.shape[0],flat_temp.shape[1],len(allFileNames)))
+        for i in range(len(allFileNames)):
+            flat[:,:,i] = np.loadtxt(folder + str(allFileNames[i]), delimiter=';')
+        flat = np.median(flat,2)
+        flat = np.rot90(flat)
+        
+        if booNormalise==True: flat /= np.max(flat)
+        print 'Flat Created'
+        return flat
+        
+        
+    def stitch(self, cam1, cam2, cam3, offset):
+       
+        h=self.camera.height
+        w=self.camera.width
+        
+#         fullImage = np.zeros((h*3,w))
+        
+#         posx_rel_cam2 = posx - posx[1]
+#         posx_px_rel_cam2 = posx_rel_cam2*1000./self.camera.pSize 
+#         posy_rel_cam2 = posy - posy[1]
+#         posy_px_rel_cam2 = posy_rel_cam2*1000./self.camera.pSize 
+        
+        fullImage = np.zeros((h, w + offset[1,0]))
+        
+        fullImage[0:640,0:512]=cam2
+        fullImage[offset[0,1]:offset[0,1]+640,offset[0,0]:offset[0,0]+512]=cam1
+        fullImage[offset[1,1]:offset[1,1]+640,offset[1,0]:offset[1,1]+512]=cam3
+
+        return fullImage
+    
+    
+    def find_offset(self, cam1, cam2, cam3, lambda1, lambda2, lambda3):
+        
+        peaks1 = self.find_peaks_im(cam1, lambda1)
+        peaks2 = self.find_peaks_im(cam2, lambda2)
+        peaks3 = self.find_peaks_im(cam3, lambda3)
+        
+        #get common wavelengths
+        commonLambda12 = lambda1[np.in1d(lambda1,lambda2)]
+        commonLambda13 = lambda1[np.in1d(lambda1,lambda3)]
+        
+        #read idx of slices to be removed from arc files
+        #repeated points are removed from the lower(<y) camera because it gets written over by the camera above.
+        removeCam2 = np.where(np.in1d(lambda2,lambda1)==True)[0]
+        removeCam1 = np.where(np.in1d(lambda1,lambda3)==True)[0]
+        
+        #get coords of common points in cam1
+        x1 = np.zeros(len(commonLambda12))
+        y1 = np.zeros(len(commonLambda12))
+        for i in range(len(commonLambda12)):
+            x1[i],y1[i] =  peaks1[np.where(peaks1[:,2]==commonLambda12[i])[0],0:2][0]
+        
+        #get coords of common points in cam2
+        x2 = np.zeros(len(commonLambda12))
+        y2 = np.zeros(len(commonLambda12))
+        for i in range(len(commonLambda12)):
+            x2[i],y2[i] =  peaks2[np.where(peaks2[:,2]==commonLambda12[i])[0],0:2][0]
+        
+        #get first offset (to be applied to cam1)
+        offset = np.zeros((2,2))
+        offset[0,:] = np.average(x2-x1), np.average(y2-y1)
+        
+        print x2, y2
+        print x1, y1
+        print x2-x1, y2-y1
+        print ''
+        
+        #get coords of common points in cam1
+        x1 = np.zeros(len(commonLambda13))
+        y1 = np.zeros(len(commonLambda13))
+        for i in range(len(commonLambda13)):
+            x1[i],y1[i] =  peaks1[np.where(peaks1[:,2]==commonLambda13[i])[0],0:2][0]
+        
+        #get coords of common points in cam3    
+        x3 = np.zeros(len(commonLambda13))
+        y3 = np.zeros(len(commonLambda13))
+        for i in range(len(commonLambda13)):
+            x3[i],y3[i] =  peaks3[np.where(peaks3[:,2]==commonLambda13[i])[0],0:2][0]
+        
+        # complete offset points and add displace on cam1 (to be used in camera3)
+        offset[1,:] = np.average(x1-x3), np.average(y1-y3)
+        offset[1,:] +=  offset[0,:]
+        offset = offset.astype(int)
+
+        print x1, y1
+        print x3, y3
+        print x1-x3, y1-y3        
+        
+        return offset, removeCam2, removeCam1
+    
+
+    def write_csv_from_im(self, fileName, im):
+        
+        np.savetxt(fileName, im, fmt='%05d', delimiter=';')
+
+
+class cameras():    
+    name = 'blue'
+    raw = ''
+    name = ''
+    width = ''
+    height = ''
+    offsetX = 0
+    offsetY = 0
+    CCDMap = []
+    CCDMapOffset = []
+    
+class beams():
+    pass
+
+class optics():
+    pass
+
+    
+class plot():
+       
+    def ccd_map(self, CCDMap, canvasSize=1, backImage='', title = '', backgroundFile = ''):
+        #Plot CCD map 
+        
+        colorTable = np.array((wt.optics.wav2RGB(CCDMap[:,c.CCDMap.wavelength], CCDMap[:,c.CCDMap.intensity]))) 
+        
         if backImage!='':
-            im = pyfits.getdata(backImage)
+            im = backImage
+            plt.imshow(im, origin='lower')
+            
+        if backgroundFile!='':
+            hdulist = pf.open(backgroundFile)
+            imWidth = hdulist[0].header['NAXIS1']
+            imHeight = hdulist[0].header['NAXIS2']
+            im = hdulist[0].data
             im[im<0] = 0
             im[np.isnan(im)] = 0
-            im /= im.max()
+            im /= np.max(im)
             im = np.sqrt(im) #Remove this line for Hg
-    #        im = np.sqrt(im) #Remove this line for Hg
-#    
-#        labels = np.array([0])
-#         
-#        for line in open('solar2.txt'):
-#            Lambda = float(str(line).split()[0]) #Wavelength
-#            labels = np.vstack((labels,np.array([Lambda])))
-#
-#        labels=labels[1:]       
-#        im=mpimg.imread('solar.png')
-#        color=colorTable
-#        print random.randrange(-30,-10) random()
-#        plt.subplots_adjust(bottom = 0.1)
-#        plt.plot( x,-z, "o", markersize=7, color=colorTable, markeredgewidth=1,markeredgecolor='g', markerfacecolor='None' )
-            plt.imshow(im,extent=[-imWidth/2 , imWidth/2 , -imHeight/2 , imHeight/2])
-            plt.set_cmap(cm.Greys_r)
-        
-
-
-        ax1.scatter(CCDX, -CCDY ,s=8, color=colorTable , marker='o', alpha =.5)
-        plt.axis([-imWidth/2 * canvasSize , imWidth/2 * canvasSize , -imHeight/2 * canvasSize , imHeight/2 * canvasSize])
-        plt.title('Order Identification')
+            plt.imshow(im, origin='lower')
+            plt.set_cmap(plt.cm.Greys_r)
+            plt.axis([ 0, imWidth * canvasSize , 0, imHeight * canvasSize])
+            
+        plt.scatter(CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y] ,s=8, color=colorTable , marker='o', alpha =.5)
+        if title=='': plt.title('CCD Map')
         plt.ylabel('pixels')
         plt.xlabel('pixels')
-        
-#        if CalibPoints==True:
-#            x,y,waveList,xSig,ySig = readCalibrationData(specFile)
-#            ax1.scatter(x-imWidth/2 , -(y-imHeight/2) ,s=400, color='black', marker='x', alpha=1)
-        
         plt.show()
 
-def do_plot_flux(wavelength, flux, title = ''):
-        
-#         colorTable = np.array((wt.optics.wav2RGB(wavelength, flux))) 
-#         bar_width = (max(wavelength) - min(wavelength)) / 100
-
-         
-#         fig = plt.figure()
-#         ax1 = fig.add_subplot(111, axisbg='black')
-#         ax1.bar(wavelength, flux, width=bar_width, color=colorTable , edgecolor='none')
-#         ax1.scatter(wavelength, flux)
-        plt.plot(wavelength, flux)
-        plt.ylabel('Intensity')
-        plt.xlabel('Wavelength ($\mu$m)')
-#         plt.axis([min(wavelength) ,max(wavelength)*1.01 ,min(flux) , max(flux)])
-
-        if title=='':title = 'Flux'
-        plt.title(title)        
-        
-        plt.show()
-
-def do_plot_sed_map(SEDMap, title='', point_density=1):
-        
-        SEDMap = SEDMap[:,::point_density]
-        
-        colorTable = np.array((wt.wav2RGB(SEDMap[SEDMapLambda], SEDMap[SEDMapIntensity]))) 
-        bar_width = 0.0001 #(max(SEDMap[SEDMapLambda]) - min(SEDMap[SEDMapLambda])) / 100
-
-         
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111, axisbg='black')
-        ax1.bar(SEDMap[SEDMapLambda],SEDMap[SEDMapIntensity], width=bar_width, color=colorTable , edgecolor='none')
-        
-        plt.ylabel('Intensity')
-        plt.xlabel('Wavelength ($\mu$m)')
-        plt.axis([min(SEDMap[SEDMapLambda]) ,max(SEDMap[SEDMapLambda])*1.01 ,0 , max(SEDMap[SEDMapIntensity])])
-
-        if title=='':title = 'Spectral Energy Distribuition'
-        plt.title(title)        
-        
-        plt.show()
-
-def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMap=[], booLabels = False, canvasSize=2, title=''):
-
-        if CCDMap!=[]:
-            CCDX = CCDMap[CCD_MAP_X] 
-            CCDY = CCDMap[CCD_MAP_Y] 
-            CCDLambda = CCDMap[CCD_MAP_LAMBDA] 
-            CCDIntensity = CCDMap[CCD_MAP_INTENSITY] 
-            CCDOrder = CCDMap[CCD_MAP_ORDER] 
+    
+    def calib_points(self, calibrationDataFileName, backImage='', booLabels = False, canvasSize=2, title='', booInteractive = False,  backgroundFile = ''):
 
         #Loads from calibration output file
-        imageMapX, imageMapY, imageMapLambda , imageMapXsig , imageMapYsig  = wt.ia.read_full_calibration_data(calibrationDataFileName)
-        if imageMapX==[]: return
+        calibrationMap = wt.ia.read_full_calibration_data(calibrationDataFileName)
+        if calibrationMap.shape[0]==0: 
+            print  'Reading calibration file returned an empty array.'
+            return
         
-        #Plot
-        hdulist = pyfits.open(backImageFileName)
-        imWidth = hdulist[0].header['NAXIS1']
-        imHeight = hdulist[0].header['NAXIS2']
-        im = pyfits.getdata(backImageFileName) 
-        imNorm = wt.ic.normalise_image(im) 
-#        plt.ion()
-        fig = plt.figure()
-        ax1 = fig.add_subplot(111)
-        plt.imshow(imNorm,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
+        if backImage!='':
+            im = backImage
+            plt.imshow(im, origin='lower')
 
-        plt.set_cmap(cm.Greys_r)
+        if backgroundFile!='':
+            hdulist = pf.open(backImage)
+            imWidth = hdulist[0].header['NAXIS1']
+            imHeight = hdulist[0].header['NAXIS2']
+            im = hdulist[0].data
+            fig = plt.figure()
+            plt.imshow(im, origin='lower')#,extent=[0, imWidth , 0, imHeight])
+            plt.set_cmap(plt.cm.Greys_r)
         
-        ax1.scatter(imageMapX, imageMapY ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+        
+        
+        plt.scatter(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+#         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
+#         plt.axis([0, imWidth * canvasSize, 0, imHeight * canvasSize])
+        plt.legend()
+        if title=='': title = str(calibrationMap.shape[0])+' point(s) found in the calibration file'
+        
         if booLabels:
-            fullLabel = [str(imageMapLambda[x]) for x in np.arange(len(imageMapLambda))]
-            
-            for x, y, label in zip(imageMapX, imageMapY, fullLabel ):
+            fullLabel = calibrationMap[:,c.calibrationMap.wavelength] 
+            for x, y, label in zip(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y], fullLabel ):
                 plt.annotate(
                     label, 
                     xy = (x, y), xytext = (0,-25),
@@ -635,37 +780,143 @@ def do_plot_calibration_points(backImageFileName, calibrationDataFileName, CCDMa
 #                                relpos=(0.2, 0.8),
 #                                connectionstyle="arc3,rad=-0.1"), size=10)
 
-        if CCDMap!=[]: 
-            ax1.scatter(CCDX, CCDY ,s=50, color="blue" , marker='o', alpha = 0.5, label='Model Data')
+        plt.title(title) 
+        if booInteractive>0:
+            plt.ion()
+            plt.draw()
+            a = plt.ginput(-1)
+            plt.close()
+            plt.ioff()
+        else:
+            plt.show()
 
+            a = []
+            
+        return a
+    
+    def calib_points_CCDMap(self, calibrationMap, backImage = '', backgroundFile='', CCDMap = [], booLabels = False, canvasSize=2, title='', booInteractive = 0, arcMapMask = []):
+                 
+        if backImage!='':
+            im = backImage
+            plt.imshow(im, origin='lower')
+
+        if backgroundFile!='':
+            hdulist = pf.open(backImage)
+            imWidth = hdulist[0].header['NAXIS1']
+            imHeight = hdulist[0].header['NAXIS2']
+            im = hdulist[0].data
+#             fig = plt.figure()
+            plt.imshow(im, origin='lower')#,extent=[0, imWidth , 0, imHeight])
+            plt.set_cmap(plt.cm.Greys_r)
+
+        plt.scatter(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+        if booLabels:
+            fullLabel = calibrationMap[:,c.calibrationMap.wavelength]
+            for x, y, label in zip(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y], fullLabel ):
+                plt.annotate(
+                    label, 
+                    xy = (x, y), xytext = (0,-25),
+                    textcoords = 'offset points', ha = 'right', va = 'bottom',
+                    bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 1))
+
+        if CCDMap!=[]: 
+            CCDX = CCDMap[:,c.CCDMap.x][arcMapMask]
+            CCDY = CCDMap[:,c.CCDMap.y][arcMapMask] 
+            CCDWavelength = CCDMap[:,c.CCDMap.wavelength][arcMapMask] 
+            CCDIntensity = CCDMap[:,c.CCDMap.intensity][arcMapMask]
+            CCDOrder = CCDMap[:,c.CCDMap.order][arcMapMask]
+            plt.scatter(CCDX, CCDY ,s=50, color="blue" , marker='o', alpha = 0.5, label='Model Data')
             if booLabels:
 #                fullLabel = ['('+str(CCDX[x])+', '+str(CCDY[x])+')'+str(CCDLambda[x]) for x in np.arange(len(CCDX))]
-                fullLabel = [str(CCDLambda[x]) for x in np.arange(len(CCDLambda))]
-                
+#                 fullLabel = [str(CCDWavelength[x]) for x in np.arange(len(CCDWavelength))]
+                fullLabel = CCDMap[:,c.CCDMap.wavelength][arcMapMask].astype('|S10')
+#                 print fullLabel
                 for x, y, label in zip(CCDX, CCDY, fullLabel ):
                     plt.annotate(
                         label, 
                         xy = (x, y), xytext = (0,-25),
                         textcoords = 'offset points', ha = 'right', va = 'bottom',
                         bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9))
-#                        arrowprops = dict(arrowstyle="wedge,tail_width=1.",
-#                                    fc=(0, 0, 1), ec=(1., 1, 1),
-#                                    patchA=None,
-#                                    relpos=(0.2, 0.8),
-#                                    connectionstyle="arc3,rad=-0.1"), size=7)                
         
         plt.legend()
-        if title=='':title = str(len(imageMapX))+' point(s) found in the calibration image'
+        if title=='':title = str(len(calibrationMap[:,c.calibrationMap.x]))+' point(s) found in the calibration image'
         plt.title(title) 
-        plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
-
-#        plt.draw()
-        plt.show()
+#         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
         
-def do_load_spec(modelXMLFile):        
-    global Beams, Optics, Cameras, a, b
-    
-    Beams, Optics, Cameras, a, b = wt.xml.read_all(modelXMLFile)
-    
-    print Cameras
-#do_load_spec('hermes.xml')
+        if booInteractive:
+            plt.draw()
+            removePoints = plt.ginput(0, timeout = -1)
+            plt.close()
+            for i in removePoints:
+                distCCDX = np.abs(CCDMap[:,c.CCDMap.x] - i[0])
+                distCCDY = np.abs(CCDMap[:,c.CCDMap.y] - i[1])
+                distCalibX = np.abs(calibrationMap[:,c.calibrationMap.x] - i[0])
+                distCalibY = np.abs(calibrationMap[:,c.calibrationMap.y] - i[1])
+                closestCCD = np.min(distCCDX+distCCDY)
+                closestCalib = np.min(distCalibX+distCalibY)
+                if closestCCD<closestCalib:
+                    if closestCCD<booInteractive:
+                        removeCCDIx = np.where((distCCDX+distCCDY)==closestCCD)[0][0]
+                        arcMapMask[removeCCDIx] = 0
+                        print 'removed CCDMap: ', CCDMap[removeCCDIx,c.CCDMap.wavelength]
+                else:
+                    if closestCalib<booInteractive:
+                        removeCalibIx = np.where((distCalibX+distCalibY)==closestCalib)[0][0]
+                        print 'removed CailbPoint: ', calibrationMap[removeCalibIx,c.calibrationMap.wavelength]
+                        calibrationMap = np.delete(calibrationMap,removeCalibIx,0)
+            print 'CCDMap points: ',CCDMap[arcMapMask].shape[0]
+            print 'Calibration Points: ' ,calibrationMap.shape[0]
+        else:
+            plt.show()
+            
+        return calibrationMap, arcMapMask
+        
+
+#         
+#         
+#         
+#         #Loads from calibration output file
+#         imageMapX, imageMapY, imageMapWavelength , imageMapXsig , imageMapYsig  = wt.ia.read_full_calibration_data(calibrationDataFileName)
+#         if imageMapX==[]: return
+#         
+#         #Plot
+#         hdulist = pf.open(backImageFileName)
+#         imWidth = hdulist[0].header['NAXIS1']
+#         imHeight = hdulist[0].header['NAXIS2']
+#         im = pf.getdata(backImageFileName) 
+# #         imNorm = wt.ic.normalise_image(im) 
+#         imNorm = im
+#         fig = plt.figure()
+#         ax1 = fig.add_subplot(111)
+#         # (left, right, bottom, top) 
+# #         plt.imshow(imNorm,extent=[-imWidth/2 , imWidth/2 , imHeight/2 , -imHeight/2])
+#         plt.imshow(imNorm, origin='lower')#,extent=[0, imWidth , 0, imHeight])
+#         plt.set_cmap(plt.cm.Greys_r)
+#         
+#         #-0.5 to match centre of the pixel fits convention
+#         
+#         ax1.scatter(imageMapX, imageMapY ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+# #         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
+# #         plt.axis([0, imWidth * canvasSize, 0, imHeight * canvasSize])
+# 
+#         plt.legend()
+#         if title=='': title = str(len(imageMapX))+' point(s) found in the calibration file'
+#         
+#         if booLabels:
+#             fullLabel = [str(imageMapX[x])+','+ str(imageMapY[x]) for x in np.arange(len(imageMapWavelength))] 
+#             for x, y, label in zip(imageMapX, imageMapY, fullLabel ):
+#                 plt.annotate(
+#                     label, 
+#                     xy = (x, y), xytext = (0,-25),
+#                     textcoords = 'offset points', ha = 'right', va = 'bottom',
+#                     bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 1))
+# #                    arrowprops = dict(arrowstyle="wedge,tail_width=1.",
+# #                                fc=(1, 0, 0), ec=(1., 0, 0),
+# #                                patchA=None,
+# #                                relpos=(0.2, 0.8),
+# #                                connectionstyle="arc3,rad=-0.1"), size=10)
+# 
+#         plt.title(title) 
+#         plt.show()
+
+        
