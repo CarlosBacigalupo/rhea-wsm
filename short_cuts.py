@@ -1,4 +1,139 @@
-import wsm
+import numpy as np
+import pylab as plt
+import pyfits as pf
+import os
+from mpl_toolkits.mplot3d import Axes3D
+
+import wsm 
+
+
+baseDir = '/Users/Carlos/Documents/IZA/reductions/3/'
+os.chdir(baseDir)
+
+
+
+xml = 'dirhea_v37.xml'
+calibFileName='calibMap.txt'
+dirhea = wsm.spectrograph()
+
+
+arc1 = np.load('arc1.npy')
+arc2 = np.load('arc2.npy')
+arc3 = np.load('arc3.npy')
+
+lambda1 = np.load('lambda1.npy')
+lambda2 = np.load('lambda2.npy')
+lambda3 = np.load('lambda3.npy')
+
+sun1 = np.load('sun1_0.npy')
+sun1_n = sun1/np.max(sun1)
+sun2 = np.load('sun2_0.npy')
+sun2_n = sun2/np.max(sun2)
+sun3 = np.load('sun3_0.npy')
+sun3_n = sun3/np.max(sun3)
+
+darkSun1 = np.load('darkSun1.npy')
+darkSun2 = np.load('darkSun2.npy')
+darkSun3 = np.load('darkSun3.npy')
+
+sun1_d = sun1 - darkSun1
+sun2_d = sun2 - darkSun2
+sun3_d = sun3 - darkSun3
+
+calibrationMap = np.loadtxt(calibFileName)
+
+fullArc = np.sum(arc1,2)
+fullScience = sun1.copy()
+
+dirhea.read_xml(xml)
+SEDMap = dirhea.create_sed_map(SEDMode=wsm.wt.c.sedMode.flat, minLambda=1.0, maxLambda=2.0, deltaLambda =0.001 )
+dirhea.orders = range(39,29,-1)
+
+CCDMap,CCDMapOffset = dirhea.create_ccd_map(SEDMap, xml)
+
+wsm.plot().ccd_map(CCDMapOffset, canvasSize=1.2, backImage=fullScience)
+
+# x30,y30 = dirhea.extract_order(CCDMapOffset, 30, fullScience, booShowImage=True)
+x31,y31 =dirhea.extract_order(CCDMapOffset, 31, fullScience, booShowImage=True)
+# x32,y32 =dirhea.extract_order(CCDMapOffset, 32, fullScience, booShowImage=True)
+# x33,y33 =dirhea.extract_order(CCDMapOffset, 33, fullScience, booShowImage=True)
+# x34,y34 =dirhea.extract_order(CCDMapOffset, 34, fullScience, booShowImage=True)
+# x35,y35 =dirhea.extract_order(CCDMapOffset, 35, fullScience, booShowImage=True)
+# x36,y36 =dirhea.extract_order(CCDMapOffset, 36, fullScience, booShowImage=True)
+# x37,y37 =dirhea.extract_order(CCDMapOffset, 37, fullScience, booShowImage=True)
+# x38,y38 =dirhea.extract_order(CCDMapOffset, 38, fullScience, booShowImage=True)
+# x39,y39 =dirhea.extract_order(CCDMapOffset, 39, fullScience, booShowImage=True)
+
+# import numpy as np
+# import pylab as plt
+# import pyfits as pf
+# import os
+# from mpl_toolkits.mplot3d import Axes3D
+# 
+# import wsm 
+# 
+# baseDir = '/Users/Carlos/Documents/IZA/reductions/3/'
+# os.chdir(baseDir)
+# 
+# xml = 'dirhea_v37.xml'
+# calibFileName='calibMap.txt'
+# dirhea = wsm.spectrograph()
+# dirhea.read_xml(xml)
+# 
+# arc1 = np.load('arc1.npy')
+# arc2 = np.load('arc2.npy')
+# arc3 = np.load('arc3.npy')
+# 
+# lambda1 = np.load('lambda1.npy')
+# lambda2 = np.load('lambda2.npy')
+# lambda3 = np.load('lambda3.npy')
+# 
+# sun1 = np.load('sun1_0.npy')
+# sun1_n = sun1/np.max(sun1)
+# sun2 = np.load('sun2_0.npy')
+# sun2_n = sun2/np.max(sun2)
+# sun3 = np.load('sun3_0.npy')
+# sun3_n = sun3/np.max(sun3)
+# 
+# darkSun1 = np.load('darkSun1.npy')
+# darkSun2 = np.load('darkSun2.npy')
+# darkSun3 = np.load('darkSun3.npy')
+# 
+# sun1_d = sun1 - darkSun1
+# sun2_d = sun2 - darkSun2
+# sun3_d = sun3 - darkSun3
+# 
+# calibrationMap = np.loadtxt(calibFileName)
+# 
+# fullArc = np.sum(arc1,2)
+# fullScience = sun1.copy()
+# 
+# dirhea.orders = range(36,33,-1)
+# 
+# SEDMap = np.unique(calibrationMap[:,2])
+# SEDMap = np.vstack((SEDMap, np.ones(len(SEDMap)))).transpose()
+# 
+# # CCDMap,CCDMapOffset = dirhea.create_ccd_map(SEDMap, xml)
+# 
+# diagTry = np.ones(11)
+# 
+# # for j in range(10): 
+# #     diagTry = np.ones(10)
+# #     for i in np.arange(0.1,100,10):
+# diagTry[9]=0.1
+# diagTry[10]=0.1
+# dirhea.find_fit(SEDMap, xml, calibrationMap, p_try=[], factorTry=1, diagTry=diagTry, showStats=False, booWriteP=True)
+
+
+
+
+
+
+
+
+
+
+
 
 # import numpy as np
 # import pylab as plt

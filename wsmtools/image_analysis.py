@@ -1,7 +1,7 @@
 import numpy as np
 import subprocess
 import pyfits as pf
-# import pylab as plt
+import pylab as plt
 # import matplotlib.cm as cm
 
 # from constants import *
@@ -138,19 +138,17 @@ def extract_order(x,y,image, booShowImage = False):
 #     x += imWidth/2
 #     y += imHeight/2
     
-    for k in range(0,len(y)):
-        ###mikes'
+    for k in range(len(y)):
         x_int = round(x[k])
         #if e.g. x = 10.4, this goes from 5 to 15, and xv at the center is 0.4
-        in_image_temp = im[y[k],x_int-5:x_int+6]
+        in_image_temp = im[y[k],x_int-10:x_int+11]
 #        in_image_temp=im[y[k],x_int-5]        
 #        for i in range(-4,6):
 #            in_image_temp = np.hstack((in_image_temp,im[y[k+i-4],x_int+i]))          
         in_image_temp[in_image_temp < 0] = 0
-        xv = np.arange(-5,6)  + x_int - x[k]
+        xv = np.arange(-10,11)  + x_int - x[k]
         flux[k] =  np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
-#        flux2[k] = np.sum(in_image_temp)
-#        flux3[k] = np.sum(in_image_temp)- np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
+
         
         #Carlos' trial
 #        x_int = int(x[k])
@@ -182,7 +180,7 @@ def extract_order(x,y,image, booShowImage = False):
 #         im = np.sqrt(im)
         im = np.log10(im) 
         plt.imshow(im, origin = 'lower' )
-        plt.set_cmap(cm.Greys_r)
+        plt.set_cmap(plt.cm.Greys_r)
         
         ax1.scatter(x, y ,s=8 , color = 'green', marker='o', alpha =.5)
         plt.title('Extraction Mask')

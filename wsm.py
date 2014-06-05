@@ -298,11 +298,11 @@ class spectrograph():
         CCDMap, CCDMap3D = wt.optics.ccd_loop(SEDMap, self.beams.raw , self.optics.raw, self.camera , self.stheta, self.orders)
         
         #Distort if any distortion data present
-        K = [self.p[11], self.p[12], self.p[13]]
-        Xc = self.p[14]
-        Yc = self.p[15]
+#         K = [self.p[11], self.p[12], self.p[13]]
+#         Xc = self.p[14]
+#         Yc = self.p[15]
         if CCDMap.shape[1]>0:
-            CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] = wt.optics.distort(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y], K, Xc, Yc)
+#             CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] = wt.optics.distort(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y], K, Xc, Yc)
         
             self.CCDMap = CCDMap
             if booAddCero: self.CCDMap = np.append(self.CCDMap,[[0,0,0.7,1,0,0]],0)
@@ -372,9 +372,9 @@ class spectrograph():
     
         CCDMap, CCDMapOffset = self.create_ccd_map(SEDMap, modelXMLFile, resetArcMap = False, p_try = p)
         
-        CCDX_m = CCDMapOffset[:,wt.c.CCDMap.x][self.arcMapMask]
-        CCDY_m = CCDMapOffset[:,wt.c.CCDMap.y][self.arcMapMask]
-        CCDLambda_m = CCDMapOffset[:,wt.c.CCDMap.wavelength][self.arcMapMask]
+        CCDX_m = CCDMapOffset[:,wt.c.CCDMap.x]#[self.arcMapMask]
+        CCDY_m = CCDMapOffset[:,wt.c.CCDMap.y]#[self.arcMapMask]
+        CCDLambda_m = CCDMapOffset[:,wt.c.CCDMap.wavelength]#[self.arcMapMask]
             
         CCDX_c = calibrationMap[:,wt.c.calibrationMap.x]
         CCDY_c = calibrationMap[:,wt.c.calibrationMap.y]
@@ -405,7 +405,7 @@ class spectrograph():
         
         diff_model_calib = np.hstack([(x_best - calibrationMap[:,wt.c.calibrationMap.x])/calibrationMap[:,wt.c.calibrationMap.sigX],
                                       (y_best - calibrationMap[:,wt.c.calibrationMap.y])/calibrationMap[:,wt.c.calibrationMap.sigY] ]) 
-        print 'Total diff =', np.sum(np.abs(diff_model_calib))
+        print 'RMS =', np.sqrt(np.mean(diff_model_calib**2))
         
         return diff_model_calib
 
@@ -557,12 +557,17 @@ class spectrograph():
 
     def find_peaks_im(self, im, wavelengths):
         a = np.where(im[:,:,0]==np.max(im[:,:,0]))
-        array_out = np.array([[a[1][0], a[0][0],wavelengths[0], 0,0]])
+        array_out = np.array([[a[1][0], a[0][0],wavelengths[0], 10,0]])
+        
+        #hack to fix bad peak in lambda = 1.55
+        im[603,287,6] = 0
+        im[603,279,6] = 0
+        
         
         #Extracts the wavelength list and peaks (max)
         for i in range(1,len(wavelengths)):
             a = np.where(im[:,:,i]==np.max(im[:,:,i]))
-            array_out = np.append(array_out,np.array([[a[1][0], a[0][0], wavelengths[i], 0,0]]), axis=0) #lambda, x, y  (lambda, col, row)
+            array_out = np.append(array_out,np.array([[a[1][0], a[0][0], wavelengths[i], 10,0]]), axis=0) #lambda, x, y  (lambda, col, row)
 
         return array_out
         

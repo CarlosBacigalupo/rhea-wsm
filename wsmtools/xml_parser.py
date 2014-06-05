@@ -7,7 +7,7 @@ import constants as c
 
 def read_p(modelXMLFile):
     
-    p=np.zeros(16)
+    p=np.zeros(11)
     
     
     xmldoc = minidom.parse(modelXMLFile)
@@ -154,7 +154,7 @@ def read_all(modelXMLFile, p_try = []):
                                         elif child.nodeName=='distortionCenterY':
                                             distortionCenterY = p_try[int(child.attributes.getNamedItem('param').value)]   
                                 
-                        newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda, distortion1, distortion2, distortion3, distortionCenterX, distortionCenterY]]
+                        newCamera=[[name, fLength, width, height, pSize, minLambda, maxLambda]]#, distortion1, distortion2, distortion3, distortionCenterX, distortionCenterY]]
                         
                         if len(Cameras)==0:
                             Cameras = np.array(newCamera)
