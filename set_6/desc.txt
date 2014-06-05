@@ -1,3 +1,0 @@
-RHEA HgAr and ThAr tests.
-Reached sub pixel accuracy. 
-Testing model writing to use calculated fit to extract.
