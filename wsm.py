@@ -7,7 +7,6 @@ from scipy import interpolate
 import os
 
 #internal libs
-import constants as c
 import wsmtools as wt
 
 
@@ -23,7 +22,7 @@ class spectrograph():
         self.orders = np.array([34,35,36,37])
 
         
-    def create_sed_map(self, SEDMode=c.sedMode.flat, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName='', minI=0, maxI=1e9): 
+    def create_sed_map(self, SEDMode=wt.c.sedMode.flat, minLambda=0.4, maxLambda=0.78, deltaLambda=0.0001, intNormalize=0, spectrumFileName='', minI=0, maxI=1e9): 
         '''
         Creates/Loads the input Spectrum Energy Density map. It simulates the characteristics of the input beam. 
         
@@ -56,10 +55,10 @@ class spectrograph():
         Notes
         -----
         '''  
-        if SEDMode==c.sedMode.flat: #Flat
+        if SEDMode==wt.c.sedMode.flat: #Flat
             SEDMap = np.array((np.arange(minLambda, maxLambda + deltaLambda, deltaLambda),np.ones(np.arange(minLambda, maxLambda + deltaLambda, deltaLambda).size)))
     
-        elif SEDMode==c.sedMode.random: #Random        
+        elif SEDMode==wt.c.sedMode.random: #Random        
             np.hstack((range(minLambda, maxLambda + deltaLambda, deltaLambda),[random.random() for _ in range(10)]))    
             SEDMap = np.array([0,0])
             for Lambda in range(minLambda, maxLambda + deltaLambda, deltaLambda):
@@ -68,17 +67,17 @@ class spectrograph():
                 SEDMap = np.vstack((SEDMap,np.array([Lambda,random.random(0.0,1.0)])))     
             SEDMap = SEDMap[1:,]
                      
-        elif SEDMode==c.sedMode.solar: #Solar   
+        elif SEDMode==wt.c.sedMode.solar: #Solar   
             sol = astSED.SOL        
             tempA=sol.wavelength.transpose()*1e-4
             tempB=sol.flux.transpose()            
             SEDMap = np.array([tempA, tempB])    
             SEDMap = SEDMap.transpose()
                                       
-        elif SEDMode==c.sedMode.file: #From line atlas
+        elif SEDMode==wt.c.sedMode.file: #From line atlas
             SEDMap = np.loadtxt(spectrumFileName, unpack=True)
             
-        elif SEDMode==c.sedMode.calib: #From calibration file
+        elif SEDMode==wt.c.sedMode.calib: #From calibration file
             a=np.loadtxt(TEMP_PATH + spectrumFileName, unpack=True)
             SEDMap=np.array((a[2],np.ones(len(a[2]))))
     #        SEDMap.transpose()
@@ -91,16 +90,16 @@ class spectrograph():
                     
         #Normalize the intensity  
         if intNormalize!=0:    
-            fluxRange=(max(SEDMap[c.sedMap.intensity])-min(SEDMap[c.sedMap.intensity]))
+            fluxRange=(max(SEDMap[wt.c.sedMap.intensity])-min(SEDMap[wt.c.sedMap.intensity]))
             
             if fluxRange==0:
-                SEDMap = np.array((SEDMap[c.sedMap.wavelength], np.ones(SEDMap[c.sedMap.wavelength].size)))  
+                SEDMap = np.array((SEDMap[wt.c.sedMap.wavelength], np.ones(SEDMap[wt.c.sedMap.wavelength].size)))  
             else:
-                SEDMap = np.array((SEDMap[c.sedMap.wavelength], (SEDMap[c.sedMap.intensity]-min(SEDMap[c.sedMap.intensity]))/(fluxRange+1) ))
+                SEDMap = np.array((SEDMap[wt.c.sedMap.wavelength], (SEDMap[wt.c.sedMap.intensity]-min(SEDMap[wt.c.sedMap.intensity]))/(fluxRange+1) ))
     
         #Remove rows outside the intensity range
-        SEDMap = np.array([SEDMap[0][SEDMap[c.sedMap.intensity]>=minI],SEDMap[1][SEDMap[c.sedMap.intensity]>=minI]])     
-        SEDMap = np.array([SEDMap[0][SEDMap[c.sedMap.intensity]<=maxI],SEDMap[1][SEDMap[c.sedMap.intensity]<=maxI]])     
+        SEDMap = np.array([SEDMap[0][SEDMap[wt.c.sedMap.intensity]>=minI],SEDMap[1][SEDMap[wt.c.sedMap.intensity]>=minI]])     
+        SEDMap = np.array([SEDMap[0][SEDMap[wt.c.sedMap.intensity]<=maxI],SEDMap[1][SEDMap[wt.c.sedMap.intensity]<=maxI]])     
            
         return SEDMap.transpose()
 
@@ -111,8 +110,8 @@ class spectrograph():
         
         newCalibrationMap = np.array([[]])
         
-        for i in range(len(CCDMap[:,c.CCDMap.x])):
-            distance_array = np.sqrt((CCDMap[i,c.CCDMap.x]-calibrationMap[:,c.calibrationMap.x])**2+(CCDMap[i,c.CCDMap.y]-calibrationMap[:,c.calibrationMap.y])**2)
+        for i in range(len(CCDMap[:,wt.c.CCDMap.x])):
+            distance_array = np.sqrt((CCDMap[i,wt.c.CCDMap.x]-calibrationMap[:,wt.c.calibrationMap.x])**2+(CCDMap[i,wt.c.CCDMap.y]-calibrationMap[:,wt.c.calibrationMap.y])**2)
             closest_point = np.min(distance_array)
             if closest_point<=distMin:
                 closest_point_index = np.where(distance_array==closest_point)[0][0]       
@@ -156,8 +155,8 @@ class spectrograph():
         
         # shifts to center of the chip (COC) coords    
         # sextractor is 1 based array
-        arcFileMap[:,c.calibrationMap.x] -= 1 
-        arcFileMap[:,c.calibrationMap.y] -= 1
+        arcFileMap[:,wt.c.calibrationMap.x] -= 1 
+        arcFileMap[:,wt.c.calibrationMap.y] -= 1
             
         #Create initial output file from calibration data
         calibFileNoWl =  'calNoWl_' + ''.join(arcFile).split('.')[0]+ '.txt'
@@ -176,26 +175,26 @@ class spectrograph():
         self.beams.raw = Beams
 #         print 'Beam:',Beams
         self.optics.raw = Optics
-        self.optics.coords1x = Optics[:,c.optics.coords1x]
-        self.optics.coords1y = Optics[:,c.optics.coords1y]
-        self.optics.coords1z = Optics[:,c.optics.coords1z]
-        self.optics.coords2x = Optics[:,c.optics.coords2x]
-        self.optics.coords2y = Optics[:,c.optics.coords2y]
-        self.optics.coords2z = Optics[:,c.optics.coords2z]
-        self.optics.type = Optics[:,c.optics.type]
-        self.optics.n = Optics[:,c.optics.n]
-        self.optics.gPeriod = Optics[:,c.optics.gPeriod]
-        self.optics.gBlAngle = Optics[:,c.optics.gBlAngle]
+        self.optics.coords1x = Optics[:,wt.c.optics.coords1x]
+        self.optics.coords1y = Optics[:,wt.c.optics.coords1y]
+        self.optics.coords1z = Optics[:,wt.c.optics.coords1z]
+        self.optics.coords2x = Optics[:,wt.c.optics.coords2x]
+        self.optics.coords2y = Optics[:,wt.c.optics.coords2y]
+        self.optics.coords2z = Optics[:,wt.c.optics.coords2z]
+        self.optics.type = Optics[:,wt.c.optics.type]
+        self.optics.n = Optics[:,wt.c.optics.n]
+        self.optics.gPeriod = Optics[:,wt.c.optics.gPeriod]
+        self.optics.gBlAngle = Optics[:,wt.c.optics.gBlAngle]
 #         print 'Optics:',Optics
         
         self.camera.raw = Cameras
-        self.camera.name = Cameras[0][c.cameras.name]
-        self.camera.width = int(Cameras[0][c.cameras.width])
-        self.camera.height = int(Cameras[0][c.cameras.height])
-        self.camera.offsetX = (int(Cameras[0][c.cameras.width])-1)/2.
-        self.camera.offsetY = (int(Cameras[0][c.cameras.height])-1)/2.
-        self.camera.pSize = float(Cameras[0][c.cameras.pSize])
-        self.camera.fLength = float(Cameras[0][c.cameras.fLength])
+        self.camera.name = Cameras[0][wt.c.cameras.name]
+        self.camera.width = int(Cameras[0][wt.c.cameras.width])
+        self.camera.height = int(Cameras[0][wt.c.cameras.height])
+        self.camera.offsetX = (int(Cameras[0][wt.c.cameras.width])-1)/2.
+        self.camera.offsetY = (int(Cameras[0][wt.c.cameras.height])-1)/2.
+        self.camera.pSize = float(Cameras[0][wt.c.cameras.pSize])
+        self.camera.fLength = float(Cameras[0][wt.c.cameras.fLength])
         self.stheta = stheta
         self.p = p
         
@@ -212,8 +211,8 @@ class spectrograph():
         if self.CCDMap.shape[1]>0:
         
             self.CCDMapOffset = self.CCDMap.copy()
-            self.CCDMapOffset[:,c.CCDMap.x] += self.camera.offsetX
-            self.CCDMapOffset[:,c.CCDMap.y] += self.camera.offsetY
+            self.CCDMapOffset[:,wt.c.CCDMap.x] += self.camera.offsetX
+            self.CCDMapOffset[:,wt.c.CCDMap.y] += self.camera.offsetY
         else:
             print 'Found empty CCDMap when trying to apply offset'
 
@@ -303,7 +302,7 @@ class spectrograph():
         Xc = self.p[14]
         Yc = self.p[15]
         if CCDMap.shape[1]>0:
-            CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y] = wt.optics.distort(CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y], K, Xc, Yc)
+            CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] = wt.optics.distort(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y], K, Xc, Yc)
         
             self.CCDMap = CCDMap
             if booAddCero: self.CCDMap = np.append(self.CCDMap,[[0,0,0.7,1,0,0]],0)
@@ -373,15 +372,15 @@ class spectrograph():
     
         CCDMap, CCDMapOffset = self.create_ccd_map(SEDMap, modelXMLFile, resetArcMap = False, p_try = p)
         
-        CCDX_m = CCDMapOffset[:,c.CCDMap.x][self.arcMapMask]
-        CCDY_m = CCDMapOffset[:,c.CCDMap.y][self.arcMapMask]
-        CCDLambda_m = CCDMapOffset[:,c.CCDMap.wavelength][self.arcMapMask]
+        CCDX_m = CCDMapOffset[:,wt.c.CCDMap.x][self.arcMapMask]
+        CCDY_m = CCDMapOffset[:,wt.c.CCDMap.y][self.arcMapMask]
+        CCDLambda_m = CCDMapOffset[:,wt.c.CCDMap.wavelength][self.arcMapMask]
             
-        CCDX_c = calibrationMap[:,c.calibrationMap.x]
-        CCDY_c = calibrationMap[:,c.calibrationMap.y]
-        CCDLambda_c = calibrationMap[:,c.calibrationMap.wavelength]
-        xSig_c = calibrationMap[:,c.calibrationMap.sigX]  
-        ySig_c = calibrationMap[:,c.calibrationMap.sigY]
+        CCDX_c = calibrationMap[:,wt.c.calibrationMap.x]
+        CCDY_c = calibrationMap[:,wt.c.calibrationMap.y]
+        CCDLambda_c = calibrationMap[:,wt.c.calibrationMap.wavelength]
+        xSig_c = calibrationMap[:,wt.c.calibrationMap.sigX]  
+        ySig_c = calibrationMap[:,wt.c.calibrationMap.sigY]
         
         
         #Loop through the input wavelengths, and find the closest output.
@@ -404,8 +403,8 @@ class spectrograph():
         ySig_c[ySig_c==0]=1
         
         
-        diff_model_calib = np.hstack([(x_best - calibrationMap[:,c.calibrationMap.x])/calibrationMap[:,c.calibrationMap.sigX],
-                                      (y_best - calibrationMap[:,c.calibrationMap.y])/calibrationMap[:,c.calibrationMap.sigY] ]) 
+        diff_model_calib = np.hstack([(x_best - calibrationMap[:,wt.c.calibrationMap.x])/calibrationMap[:,wt.c.calibrationMap.sigX],
+                                      (y_best - calibrationMap[:,wt.c.calibrationMap.y])/calibrationMap[:,wt.c.calibrationMap.sigY] ]) 
         print 'Total diff =', np.sum(np.abs(diff_model_calib))
         
         return diff_model_calib
@@ -460,10 +459,10 @@ class spectrograph():
             imHeight = self.camera.height     
             
         CCDMapTemp = CCDMap.copy()
-        orderMap = CCDMapTemp[:,c.CCDMap.order]==nOrder
-        yPlot = CCDMapTemp[:,c.CCDMap.y][orderMap]
-        xPlot = CCDMapTemp[:,c.CCDMap.x][orderMap]
-        LambdaPlot = CCDMapTemp[:,c.CCDMap.wavelength][orderMap]
+        orderMap = CCDMapTemp[:,wt.c.CCDMap.order]==nOrder
+        yPlot = CCDMapTemp[:,wt.c.CCDMap.y][orderMap]
+        xPlot = CCDMapTemp[:,wt.c.CCDMap.x][orderMap]
+        LambdaPlot = CCDMapTemp[:,wt.c.CCDMap.wavelength][orderMap]
         
         sortIndex = np.argsort(yPlot)
         yPlot = yPlot[sortIndex]
@@ -711,7 +710,7 @@ class plot():
     def ccd_map(self, CCDMap, canvasSize=1, backImage='', title = '', backgroundFile = ''):
         #Plot CCD map 
         
-        colorTable = np.array((wt.optics.wav2RGB(CCDMap[:,c.CCDMap.wavelength], CCDMap[:,c.CCDMap.intensity]))) 
+        colorTable = np.array((wt.optics.wav2RGB(CCDMap[:,wt.c.CCDMap.wavelength], CCDMap[:,wt.c.CCDMap.intensity]))) 
         
         if backImage!='':
             im = backImage
@@ -730,7 +729,7 @@ class plot():
             plt.set_cmap(plt.cm.Greys_r)
             plt.axis([ 0, imWidth * canvasSize , 0, imHeight * canvasSize])
             
-        plt.scatter(CCDMap[:,c.CCDMap.x], CCDMap[:,c.CCDMap.y] ,s=8, color=colorTable , marker='o', alpha =.5)
+        plt.scatter(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] ,s=8, color=colorTable , marker='o', alpha =.5)
         if title=='': plt.title('CCD Map')
         plt.ylabel('pixels')
         plt.xlabel('pixels')
@@ -760,15 +759,15 @@ class plot():
         
         
         
-        plt.scatter(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+        plt.scatter(calibrationMap[:,wt.c.calibrationMap.x], calibrationMap[:,wt.c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
 #         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
 #         plt.axis([0, imWidth * canvasSize, 0, imHeight * canvasSize])
         plt.legend()
         if title=='': title = str(calibrationMap.shape[0])+' point(s) found in the calibration file'
         
         if booLabels:
-            fullLabel = calibrationMap[:,c.calibrationMap.wavelength] 
-            for x, y, label in zip(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y], fullLabel ):
+            fullLabel = calibrationMap[:,wt.c.calibrationMap.wavelength] 
+            for x, y, label in zip(calibrationMap[:,wt.c.calibrationMap.x], calibrationMap[:,wt.c.calibrationMap.y], fullLabel ):
                 plt.annotate(
                     label, 
                     xy = (x, y), xytext = (0,-25),
@@ -809,10 +808,10 @@ class plot():
             plt.imshow(im, origin='lower')#,extent=[0, imWidth , 0, imHeight])
             plt.set_cmap(plt.cm.Greys_r)
 
-        plt.scatter(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
+        plt.scatter(calibrationMap[:,wt.c.calibrationMap.x], calibrationMap[:,wt.c.calibrationMap.y] ,s=50, color="red" , marker='o', alpha = 0.5, label='Calibration Data')
         if booLabels:
-            fullLabel = calibrationMap[:,c.calibrationMap.wavelength]
-            for x, y, label in zip(calibrationMap[:,c.calibrationMap.x], calibrationMap[:,c.calibrationMap.y], fullLabel ):
+            fullLabel = calibrationMap[:,wt.c.calibrationMap.wavelength]
+            for x, y, label in zip(calibrationMap[:,wt.c.calibrationMap.x], calibrationMap[:,wt.c.calibrationMap.y], fullLabel ):
                 plt.annotate(
                     label, 
                     xy = (x, y), xytext = (0,-25),
@@ -820,16 +819,16 @@ class plot():
                     bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 1))
 
         if CCDMap!=[]: 
-            CCDX = CCDMap[:,c.CCDMap.x][arcMapMask]
-            CCDY = CCDMap[:,c.CCDMap.y][arcMapMask] 
-            CCDWavelength = CCDMap[:,c.CCDMap.wavelength][arcMapMask] 
-            CCDIntensity = CCDMap[:,c.CCDMap.intensity][arcMapMask]
-            CCDOrder = CCDMap[:,c.CCDMap.order][arcMapMask]
+            CCDX = CCDMap[:,wt.c.CCDMap.x][arcMapMask]
+            CCDY = CCDMap[:,wt.c.CCDMap.y][arcMapMask] 
+            CCDWavelength = CCDMap[:,wt.c.CCDMap.wavelength][arcMapMask] 
+            CCDIntensity = CCDMap[:,wt.c.CCDMap.intensity][arcMapMask]
+            CCDOrder = CCDMap[:,wt.c.CCDMap.order][arcMapMask]
             plt.scatter(CCDX, CCDY ,s=50, color="blue" , marker='o', alpha = 0.5, label='Model Data')
             if booLabels:
 #                fullLabel = ['('+str(CCDX[x])+', '+str(CCDY[x])+')'+str(CCDLambda[x]) for x in np.arange(len(CCDX))]
 #                 fullLabel = [str(CCDWavelength[x]) for x in np.arange(len(CCDWavelength))]
-                fullLabel = CCDMap[:,c.CCDMap.wavelength][arcMapMask].astype('|S10')
+                fullLabel = CCDMap[:,wt.c.CCDMap.wavelength][arcMapMask].astype('|S10')
 #                 print fullLabel
                 for x, y, label in zip(CCDX, CCDY, fullLabel ):
                     plt.annotate(
@@ -839,7 +838,7 @@ class plot():
                         bbox = dict(boxstyle = 'round,pad=0.5', fc = 'white', alpha = 0.9))
         
         plt.legend()
-        if title=='':title = str(len(calibrationMap[:,c.calibrationMap.x]))+' point(s) found in the calibration image'
+        if title=='':title = str(len(calibrationMap[:,wt.c.calibrationMap.x]))+' point(s) found in the calibration image'
         plt.title(title) 
 #         plt.axis([-imWidth/2 * canvasSize, imWidth/2 * canvasSize, -imHeight/2 * canvasSize, imHeight/2 * canvasSize])
         
@@ -848,21 +847,21 @@ class plot():
             removePoints = plt.ginput(0, timeout = -1)
             plt.close()
             for i in removePoints:
-                distCCDX = np.abs(CCDMap[:,c.CCDMap.x] - i[0])
-                distCCDY = np.abs(CCDMap[:,c.CCDMap.y] - i[1])
-                distCalibX = np.abs(calibrationMap[:,c.calibrationMap.x] - i[0])
-                distCalibY = np.abs(calibrationMap[:,c.calibrationMap.y] - i[1])
+                distCCDX = np.abs(CCDMap[:,wt.c.CCDMap.x] - i[0])
+                distCCDY = np.abs(CCDMap[:,wt.c.CCDMap.y] - i[1])
+                distCalibX = np.abs(calibrationMap[:,wt.c.calibrationMap.x] - i[0])
+                distCalibY = np.abs(calibrationMap[:,wt.c.calibrationMap.y] - i[1])
                 closestCCD = np.min(distCCDX+distCCDY)
                 closestCalib = np.min(distCalibX+distCalibY)
                 if closestCCD<closestCalib:
                     if closestCCD<booInteractive:
                         removeCCDIx = np.where((distCCDX+distCCDY)==closestCCD)[0][0]
                         arcMapMask[removeCCDIx] = 0
-                        print 'removed CCDMap: ', CCDMap[removeCCDIx,c.CCDMap.wavelength]
+                        print 'removed CCDMap: ', CCDMap[removeCCDIx,wt.c.CCDMap.wavelength]
                 else:
                     if closestCalib<booInteractive:
                         removeCalibIx = np.where((distCalibX+distCalibY)==closestCalib)[0][0]
-                        print 'removed CailbPoint: ', calibrationMap[removeCalibIx,c.calibrationMap.wavelength]
+                        print 'removed CailbPoint: ', calibrationMap[removeCalibIx,wt.c.calibrationMap.wavelength]
                         calibrationMap = np.delete(calibrationMap,removeCalibIx,0)
             print 'CCDMap points: ',CCDMap[arcMapMask].shape[0]
             print 'Calibration Points: ' ,calibrationMap.shape[0]

@@ -27,8 +27,10 @@ import xml_parser as xml
 import image_calibration as ic
 import image_analysis as ia
 import optics
+import constants as c
+
 # from constants import *
-# import constants as c
+
 # import wsm
 
 

@@ -1,12 +1,12 @@
 import numpy as np
 import subprocess
-import pyfits
-import pylab as plt
-import matplotlib.cm as cm
+import pyfits as pf
+# import pylab as plt
+# import matplotlib.cm as cm
 
 # from constants import *
 import constants as c
-import image_calibration as ic
+# import image_calibration as ic
 
 def analyse_image_sex(arcFile, sexParamFile):
     #finds peaks using sextractor, returns program output and generated data filename
@@ -53,7 +53,7 @@ def identify_imageMapWavelength_manual(SEDMap, CCDX, CCDY, CCDLambda, imageMapX,
     #Plot
     imWidth = int(Cameras[0][CamerasWidth])
     imHeight = int(Cameras[0][CamerasHeight])
-    im = pyfits.getdata(FITS_PATH + backImageFileName) 
+    im = pf.getdata(FITS_PATH + backImageFileName) 
     imNorm = ic.normalise_image(im) 
     
     fig = plt.figure()
@@ -129,8 +129,8 @@ def extract_order(x,y,image, booShowImage = False):
         imHeight = image.shape[0]
     elif type(image)==str:
         #Grab image data
-        hdulist = pyfits.open(image)
-        im = pyfits.getdata(image)     
+        hdulist = pf.open(image)
+        im = pf.getdata(image)     
         imWidth = hdulist[0].header['NAXIS1']
         imHeight = hdulist[0].header['NAXIS2']
     

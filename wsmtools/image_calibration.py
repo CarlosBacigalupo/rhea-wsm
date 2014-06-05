@@ -1,9 +1,9 @@
-from pyraf import iraf
-import os
+# import os
 import numpy as np
-from constants import *
-import subprocess
-import pylab as plt
+# import subprocess
+# import pylab as plt
+
+# from constants import *
 
     
 def find_nearest(array,value):
