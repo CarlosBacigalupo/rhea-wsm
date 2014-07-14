@@ -7,7 +7,7 @@ import constants as c
 
 def read_p(modelXMLFile):
     
-    p=np.zeros(11)
+    p=np.zeros(16)
     
     
     xmldoc = minidom.parse(modelXMLFile)

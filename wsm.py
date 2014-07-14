@@ -290,8 +290,8 @@ class spectrograph():
         
         #hack for RHEA. Needs manual reverse of prism on beam return. todo
     #     if modelXMLFile[-8:]=='rhea.xml':
-#         self.optics.raw[4,0:3]=-self.optics.raw[0,0:3]
-#         self.optics.raw[3,0:3]=-self.optics.raw[1,0:3]  
+        self.optics.raw[4,0:3]=-self.optics.raw[0,0:3]
+        self.optics.raw[3,0:3]=-self.optics.raw[1,0:3]  
         
         self.camera.fLength = self.p[10]
         #Launch grid loop. Creates an array of (x,y,lambda, Intensity, Order, beamID)
@@ -450,8 +450,8 @@ class spectrograph():
             imWidth = image.shape[1]
             imHeight = image.shape[0]
         elif ((type(image)==str) and (image!='')):
-            hdulist = pyfits.open(image)
-            im = pyfits.getdata(image)     
+            hdulist = pf.open(image)
+            im = pf.getdata(image)     
             imWidth = hdulist[0].header['NAXIS1']
             imHeight = hdulist[0].header['NAXIS2']     
         else:
@@ -496,10 +496,10 @@ class spectrograph():
             a[:,2] = newLambdas
             np.savetxt(orderFileName, a)
         
-        if type(im)==np.ndarray: 
-            flux = wt.ia.extract_order(newX, newY, image, booShowImage)
-        else:
-            flux = np.zeros(len(newLambdas))
+#         if type(im)==np.ndarray: 
+        flux = wt.ia.extract_order(newX, newY, image, booShowImage)
+#         else:
+#             flux = np.zeros(len(newLambdas))
             
         return newLambdas, flux
     
@@ -728,13 +728,14 @@ class plot():
             im = hdulist[0].data
             im[im<0] = 0
             im[np.isnan(im)] = 0
-            im /= np.max(im)
-            im = np.sqrt(im) #Remove this line for Hg
+#             im /= np.max(im)
+#             im = np.max(im)
+            im = np.log10(im) #Remove this line for Hg
             plt.imshow(im, origin='lower')
             plt.set_cmap(plt.cm.Greys_r)
             plt.axis([ 0, imWidth * canvasSize , 0, imHeight * canvasSize])
             
-        plt.scatter(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] ,s=8, color=colorTable , marker='o', alpha =.5)
+        plt.scatter(CCDMap[:,wt.c.CCDMap.x], CCDMap[:,wt.c.CCDMap.y] ,s=20, color=colorTable , marker='o', alpha =.5)
         if title=='': plt.title('CCD Map')
         plt.ylabel('pixels')
         plt.xlabel('pixels')
@@ -805,7 +806,7 @@ class plot():
             plt.imshow(im, origin='lower')
 
         if backgroundFile!='':
-            hdulist = pf.open(backImage)
+            hdulist = pf.open(backgroundFile)
             imWidth = hdulist[0].header['NAXIS1']
             imHeight = hdulist[0].header['NAXIS2']
             im = hdulist[0].data

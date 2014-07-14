@@ -65,7 +65,7 @@ def ccd_loop(SEDMap, beams, optics, camera, stheta, orders):
 #                 print 'wavelength:', Lambda            
                 
                 #the wavelength range is from the blaze wavelength of the next order and the blaze wavelength of the previous order
-                if (abs(Lambda*(nOrder+0.5)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-0.5)) <= abs(2*GPeriod*np.sin(blazeAngle))):
+                if (abs(Lambda*(nOrder+1.0)) >= abs(2*GPeriod*np.sin(blazeAngle)) and abs(Lambda*(nOrder-1.0)) <= abs(2*GPeriod*np.sin(blazeAngle))):
 
                     #Computes the unit vector that results from the optical system for a given wavelength and order
                     #This is the actual tracing of the ray for each wavelength             
@@ -192,7 +192,7 @@ def VPHGrating(u, s, l, nOrder, Lambda, d):
 
     return u, isValid     
 
-def Snell3D(n_i,n_r,u,n):
+def Snell3D_iza(n_i,n_r,u,n):
     """Computes the new direction of a vector when changing medium. 
     n_i, n_r = incident and refractive indices"""
     
@@ -218,6 +218,21 @@ def Snell3D(n_i,n_r,u,n):
         pass
     
     return u, isValid       
+
+def Snell3D(n_i,n_r,u,n):
+    """Computes the new direction of a vector when changing medium. 
+    n_i, n_r = incident and refractive indices"""
+ 
+    u_p = u - np.dot(u,n)*n
+    u_p /= np.linalg.norm(u_p)
+    
+    theta_i = np.arccos(np.dot(u,n))
+    
+    if n_i*np.sin(theta_i)/n_r<=1:
+        theta_f = np.arcsin(n_i*np.sin(theta_i)/n_r)
+        u = u_p*np.sin(np.pi-theta_f) + n*np.cos(np.pi-theta_f)    
+
+    return u, True     
 
 def n(Lambda, medium=c.media.air, t=18, p=101325):
     

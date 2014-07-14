@@ -125,15 +125,12 @@ def extract_order(x,y,image, booShowImage = False):
     
     if type(image)==np.ndarray:
         im = image
-        imWidth = image.shape[1]
-        imHeight = image.shape[0]
     elif type(image)==str:
-        #Grab image data
-        hdulist = pf.open(image)
-        im = pf.getdata(image)     
-        imWidth = hdulist[0].header['NAXIS1']
-        imHeight = hdulist[0].header['NAXIS2']
-    
+        im = pf.getdata(image)   
+
+    imWidth = im.shape[1]
+    imHeight = im.shape[0]
+  
     
 #     x += imWidth/2
 #     y += imHeight/2
@@ -147,9 +144,11 @@ def extract_order(x,y,image, booShowImage = False):
 #            in_image_temp = np.hstack((in_image_temp,im[y[k+i-4],x_int+i]))          
         in_image_temp[in_image_temp < 0] = 0
         xv = np.arange(-10,11)  + x_int - x[k]
-        flux[k] =  np.sum(in_image_temp * np.exp(-(xv/3.5)**4))
-
-        
+        gauss_env = np.exp(-(xv/3.5)**4)
+        flux[k] =  np.sum(in_image_temp * gauss_env)
+#         plt.plot(in_image_temp/np.max(in_image_temp))
+#         plt.plot(gauss_env)
+#         plt.show()
         #Carlos' trial
 #        x_int = int(x[k])
 #        res=x[k]-x_int- 0.5
